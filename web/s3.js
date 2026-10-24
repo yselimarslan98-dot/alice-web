@@ -83,6 +83,36 @@ export async function getObject(c, name) {
   return s3fetch(c, 'GET', objectUrl(c, name));
 }
 
+// A short access code instead of the long link: the config is published only encrypted
+// (bucket.sealed.json, AES-256-GCM, key from PBKDF2-SHA256 over the code). Codes from
+// tools/seal-bucket.mjs carry ~59 random bits, out of reach of offline guessing at this cost.
+const PBKDF2_ITERATIONS = 600000;
+const b64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+const unb64 = (text) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+export const normalizeCode = (code) => code.toLowerCase().replace(/[^a-z0-9]/g, '');
+async function codeKey(code, salt, iterations) {
+  const base = await crypto.subtle.importKey('raw', te.encode(normalizeCode(code)), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, base,
+    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+export async function sealConfig(config, code) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await codeKey(code, salt, PBKDF2_ITERATIONS);
+  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(JSON.stringify(config)));
+  return { v: 1, iterations: PBKDF2_ITERATIONS, salt: b64(salt), iv: b64(iv), data: b64(data) };
+}
+export async function unsealConfig(sealed, code) {
+  const key = await codeKey(code, unb64(sealed.salt), sealed.iterations);
+  let plain;
+  try {
+    plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(sealed.iv) }, key, unb64(sealed.data));
+  } catch {
+    throw new Error('şifre yanlış');
+  }
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
 // Setup links carry the config in the URL fragment (never sent to any server).
 export const encodeConfig = (c) => btoa(JSON.stringify(c)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 export function decodeConfig(text) {

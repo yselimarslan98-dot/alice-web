@@ -127,15 +127,37 @@ async function saveRemoteConfig(config) {
   await writable.close();
 }
 
-// Takes #remote=... out of the address bar (and out of the options passed to the game).
+// Takes #remote=<config> or #k=<access code> out of the address bar (and out of the options
+// passed to the game); returns the text to resolve, or null.
 function takeLinkConfig() {
   const params = new URLSearchParams(location.hash.slice(1));
-  const value = params.get('remote');
+  const value = params.get('remote') ?? params.get('k');
   if (value === null) return null;
+  const text = params.has('remote') ? `#remote=${value}` : value;
   params.delete('remote');
+  params.delete('k');
   const rest = params.toString();
   history.replaceState(null, '', location.pathname + location.search + (rest ? `#${rest}` : ''));
-  return value;
+  return text;
+}
+
+// Accepts a setup link (…#remote=…), a short link (…#k=…) or just the access code.
+async function resolveConfig(text) {
+  const s3 = await import('./s3.js');
+  const link = /[#&]remote=([^&\s]+)/.exec(text);
+  if (link) return s3.decodeConfig(link[1]);
+  const code = /[#&]k=([^&\s]+)/.exec(text)?.[1] || text;
+  const r = await fetch('bucket.sealed.json', { cache: 'no-store' });
+  if (!r.ok) throw new Error('bu sitede şifreyle açılan bir depo tanımlı değil');
+  return s3.unsealConfig(await r.json(), decodeURIComponent(code));
+}
+
+async function hasSealedBucket() {
+  try {
+    return (await fetch('bucket.sealed.json', { method: 'HEAD', cache: 'no-store' })).ok;
+  } catch {
+    return false;
+  }
 }
 
 async function downloadFromBucket(config) {
@@ -183,23 +205,30 @@ async function setup() {
   let remote = await readRemoteConfig();
   if (fromLink) {
     try {
-      remote = (await import('./s3.js')).decodeConfig(fromLink);
+      remote = await resolveConfig(fromLink);
     } catch (err) {
-      return fatal(`Kurulum bağlantısı okunamadı: ${err.message}`);
+      return fatal(`Kurulum bağlantısı açılamadı: ${err.message}`);
     }
     await saveRemoteConfig(remote);
   }
   if (haveData) return start('opfs');
   if (remote) return useBucket(remote);
   show('setup');
+  if (await hasSealedBucket()) {
+    $('link-text').textContent = 'Şifren varsa buraya yaz; oyun dosyaları kendi deponden bu tarayıcıya bir kez indirilir.';
+    $('link-input').placeholder = 'Şifre';
+    $('link-input').focus();
+  }
   $('link-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = $('link-input').value.trim();
+    if (!text) return;
+    $('setup-error').textContent = 'Kontrol ediliyor…';
     let config;
     try {
-      config = (await import('./s3.js')).decodeConfig(/[#&]remote=([^&]+)/.exec(text)?.[1] || text);
+      config = await resolveConfig(text);
     } catch (err) {
-      $('setup-error').textContent = `Kurulum bağlantısı okunamadı: ${err.message}`;
+      $('setup-error').textContent = `Açılamadı: ${err.message}`;
       return;
     }
     await saveRemoteConfig(config);

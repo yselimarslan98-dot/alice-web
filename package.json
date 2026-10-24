@@ -10,6 +10,7 @@
     "serve:site": "node tools/serve-static.mjs dist 8090",
     "upload:bucket": "node tools/upload-s3.mjs",
     "mock:bucket": "node tools/mock-s3.mjs 9000",
-    "test:s3": "node tools/s3-sigv4-test.mjs"
+    "test:s3": "node tools/s3-sigv4-test.mjs",
+    "seal:bucket": "node tools/seal-bucket.mjs"
   }
 }

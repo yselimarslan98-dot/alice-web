@@ -41,7 +41,18 @@ Araç sırasıyla şunları yapar:
 - Okuma anahtarıyla kovayı listeleyerek bağlantıyı doğrular.
 - **Kişisel kurulum bağlantısını** yazdırır.
 
-## 3. Oynama
+## 3. Kısa şifre (isteğe bağlı)
+
+```sh
+npm run seal:bucket            # rastgele 12 karakterlik şifre üretir; ya da: npm run seal:bucket -- <şifre>
+```
+
+Okuma anahtarı bu şifreyle şifrelenir (PBKDF2-SHA256 600.000 tur + AES-256-GCM) ve `web/bucket.sealed.json`
+olarak siteye konur. Şifreyi bilmeyen biri anahtarı çözemez. Yeni bir bilgisayarda kurulum ekranına
+şifreyi yazmak ya da `…/alice-web/#k=<şifre>` adresini açmak yeterlidir. Şifreyi değiştirmek için komutu
+yeniden çalıştırıp push et; eski şifre artık çalışmaz.
+
+## 4. Oynama
 
 Bağlantıyı yer imlerine ekle. Herhangi bir cihazda aç; dosyalar iner (~660 MB) ve oyun başlar. Ayrıca
 kurulum ekranındaki kutuya da yapıştırılabilir.
