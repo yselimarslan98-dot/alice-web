@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alice (web)</title>
+  <style>
+    :root { --fg: #e6dcc6; --muted: #a89c86; --accent: #c9a25e; --bg: #0b0908; --panel: #17130f; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+      font: 16px/1.5 Georgia, 'Times New Roman', serif; }
+    canvas { width: 100%; height: 100%; display: block; outline: none; }
+    #hud { position: fixed; left: 6px; bottom: 4px; color: #8f8; font: 12px monospace; pointer-events: none; }
+    .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .screen[hidden], #boot[hidden] { display: none; }
+    .panel { max-width: 560px; background: var(--panel); border: 1px solid #3a3027; border-radius: 10px; padding: 28px 32px; }
+    h1 { margin: 0 0 12px; font-size: 26px; font-weight: normal; color: var(--accent); }
+    p { margin: 0 0 12px; color: var(--muted); }
+    label.button { display: inline-block; margin-top: 8px; padding: 10px 18px; border-radius: 6px; cursor: pointer;
+      background: var(--accent); color: #1b140c; font-weight: bold; }
+    label.button input { display: none; }
+    progress { width: 100%; height: 14px; }
+    .error { color: #e08a7a; }
+    #boot { position: fixed; right: 48px; bottom: 40px; font-size: 28px; pointer-events: none; }
+    #reset { position: fixed; top: 8px; right: 12px; color: var(--muted); font-size: 12px; z-index: 2; opacity: 0.5; }
+  </style>
+</head>
+<body>
+  <div id="setup" class="screen" hidden>
+    <div class="panel">
+      <h1>American McGee's Alice</h1>
+      <p>Oynamak için kendi Alice (2011) kurulumunuzdaki dosyalar gerekir. Bilgisayarınızdaki
+        <b>Alice1\bin\base</b> klasörünü (ya da Alice klasörünün tamamını) seçin.</p>
+      <p>Dosyalar (~660 MB) yalnızca bu tarayıcının bu siteye ayrılmış özel deposuna kopyalanır; hiçbir
+        sunucuya yüklenmez. Bu bir kez yapılır, sonraki girişlerde oyun doğrudan açılır.</p>
+      <label class="button">Alice klasörünü seç<input id="folder" type="file" webkitdirectory multiple></label>
+      <p id="setup-error" class="error"></p>
+    </div>
+  </div>
+  <div id="copying" class="screen" hidden>
+    <div class="panel">
+      <h1>Dosyalar hazırlanıyor</h1>
+      <p id="copy-text">Başlıyor…</p>
+      <progress id="copy-progress" max="1" value="0"></progress>
+    </div>
+  </div>
+  <div id="error" class="screen" hidden>
+    <div class="panel">
+      <h1>Bir sorun oluştu</h1>
+      <p id="error-text" class="error"></p>
+    </div>
+  </div>
+  <div id="game" class="screen" hidden style="padding:0">
+    <canvas id="glcanvas" tabindex="1"></canvas>
+    <div id="hud"></div>
+    <div id="boot">Yükleniyor…</div>
+  </div>
+  <a id="reset" href="#">Bu sitedeki verileri sil</a>
+  <script src="main.js"></script>
+</body>
+</html>

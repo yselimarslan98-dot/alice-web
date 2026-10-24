@@ -1,0 +1,641 @@
+{
+ "pk3s": [
+  {
+   "file": "pak0.pk3",
+   "entries": 7723,
+   "byExt": {
+    "st#": {
+     "count": 7,
+     "bytes": 50170
+    },
+    "st": {
+     "count": 78,
+     "bytes": 326618
+    },
+    "cam": {
+     "count": 396,
+     "bytes": 192259
+    },
+    "cfg": {
+     "count": 44,
+     "bytes": 78576
+    },
+    "ritualfont": {
+     "count": 14,
+     "bytes": 192725
+    },
+    "tga": {
+     "count": 284,
+     "bytes": 30989018
+    },
+    "old": {
+     "count": 4,
+     "bytes": 394709
+    },
+    "jbf": {
+     "count": 2,
+     "bytes": 51707
+    },
+    "bmp": {
+     "count": 1,
+     "bytes": 82278
+    },
+    "scr": {
+     "count": 73,
+     "bytes": 863771
+    },
+    "zip": {
+     "count": 3,
+     "bytes": 847193
+    },
+    "txt": {
+     "count": 9,
+     "bytes": 30740
+    },
+    "scr#": {
+     "count": 2,
+     "bytes": 1914
+    },
+    "bsp": {
+     "count": 36,
+     "bytes": 180525828
+    },
+    "pth": {
+     "count": 35,
+     "bytes": 849958
+    },
+    "snd": {
+     "count": 36,
+     "bytes": 159738
+    },
+    "tan": {
+     "count": 694,
+     "bytes": 15628204
+    },
+    "cik": {
+     "count": 797,
+     "bytes": 4780659
+    },
+    "tik": {
+     "count": 800,
+     "bytes": 972978
+    },
+    "skb": {
+     "count": 79,
+     "bytes": 3469844
+    },
+    "ska": {
+     "count": 1402,
+     "bytes": 56860996
+    },
+    "ska-works": {
+     "count": 1,
+     "bytes": 236
+    },
+    "pcx": {
+     "count": 1,
+     "bytes": 96927
+    },
+    "shader#": {
+     "count": 6,
+     "bytes": 70655
+    },
+    "shader": {
+     "count": 52,
+     "bytes": 691664
+    },
+    "qe4": {
+     "count": 6,
+     "bytes": 6428
+    },
+    "script": {
+     "count": 1,
+     "bytes": 2562
+    },
+    "shader~": {
+     "count": 2,
+     "bytes": 25997
+    },
+    "qc": {
+     "count": 1,
+     "bytes": 921
+    },
+    "oldshaders": {
+     "count": 1,
+     "bytes": 6261
+    },
+    "changed": {
+     "count": 1,
+     "bytes": 1528
+    },
+    "wav": {
+     "count": 1896,
+     "bytes": 226137022
+    },
+    "lip": {
+     "count": 366,
+     "bytes": 178392
+    },
+    "urc": {
+     "count": 12,
+     "bytes": 110753
+    },
+    "inc": {
+     "count": 1,
+     "bytes": 1218
+    }
+   },
+   "byTop": {
+    "ai": {
+     "count": 63,
+     "bytes": 164992
+    },
+    "cams": {
+     "count": 396,
+     "bytes": 192259
+    },
+    "configs": {
+     "count": 43,
+     "bytes": 77254
+    },
+    "default.cfg": {
+     "count": 1,
+     "bytes": 1322
+    },
+    "fonts": {
+     "count": 16,
+     "bytes": 520467
+    },
+    "gfx": {
+     "count": 72,
+     "bytes": 6788127
+    },
+    "global": {
+     "count": 30,
+     "bytes": 375299
+    },
+    "maps": {
+     "count": 170,
+     "bytes": 182384894
+    },
+    "models": {
+     "count": 3773,
+     "bytes": 81712917
+    },
+    "pics": {
+     "count": 1,
+     "bytes": 96927
+    },
+    "scripts": {
+     "count": 85,
+     "bytes": 1532996
+    },
+    "sound": {
+     "count": 2262,
+     "bytes": 226315414
+    },
+    "ui": {
+     "count": 231,
+     "bytes": 24517579
+    }
+   },
+   "headers": {
+    "tga": {
+     "{\"bpp\":32,\"type\":2}": 189,
+     "{\"bpp\":24,\"type\":2}": 90,
+     "{\"bpp\":24,\"type\":10}": 4,
+     "{\"bpp\":8,\"type\":3}": 1
+    },
+    "bsp": {
+     "{\"magic\":\"FAKK\",\"version\":42}": 36
+    },
+    "tan": {
+     "{\"magic\":\"TAN \",\"version\":2}": 694
+    },
+    "skb": {
+     "{\"magic\":\"SKL \",\"version\":3}": 64,
+     "{\"magic\":\"SKL \",\"version\":2}": 15
+    },
+    "ska": {
+     "{\"magic\":\"SKAN\",\"version\":3}": 1298,
+     "{\"magic\":\"SKAN\",\"version\":2}": 104
+    },
+    "wav": {
+     "{\"fmt\":1,\"rate\":22050,\"ch\":1}": 1883,
+     "{\"fmt\":1,\"rate\":44100,\"ch\":1}": 13
+    }
+   }
+  },
+  {
+   "file": "pak1_large.pk3",
+   "entries": 3368,
+   "byExt": {
+    "ftx": {
+     "count": 2944,
+     "bytes": 309292616
+    },
+    "zip": {
+     "count": 2,
+     "bytes": 321889
+    },
+    "old": {
+     "count": 3,
+     "bytes": 664439
+    },
+    "jbf": {
+     "count": 1,
+     "bytes": 47160
+    },
+    "jpg": {
+     "count": 1,
+     "bytes": 8211
+    }
+   },
+   "byTop": {
+    "models": {
+     "count": 777,
+     "bytes": 62771644
+    },
+    "sprites": {
+     "count": 80,
+     "bytes": 1918052
+    },
+    "textures": {
+     "count": 2094,
+     "bytes": 245644619
+    }
+   },
+   "headers": {
+    "ftx": {
+     "{\"flag\":0}": 2412,
+     "{\"flag\":1}": 532
+    }
+   }
+  },
+  {
+   "file": "pak2.pk3",
+   "entries": 71,
+   "byExt": {
+    "mus": {
+     "count": 38,
+     "bytes": 4381
+    },
+    "mp3": {
+     "count": 29,
+     "bytes": 105309987
+    }
+   },
+   "byTop": {
+    "sound": {
+     "count": 67,
+     "bytes": 105314368
+    }
+   },
+   "headers": {
+    "mp3": {
+     "{\"magic\":\"ID3.\"}": 1,
+     "{\"magic\":\"....\"}": 1,
+     "{\"magic\":\"...L\"}": 4,
+     "{\"magic\":\"...D\"}": 7,
+     "{\"magic\":\"...l\"}": 16
+    }
+   }
+  },
+  {
+   "file": "pak3.pk3",
+   "entries": 9,
+   "byExt": {
+    "mp3": {
+     "count": 4,
+     "bytes": 3140670
+    },
+    "roq": {
+     "count": 4,
+     "bytes": 100287683
+    }
+   },
+   "byTop": {
+    "video": {
+     "count": 8,
+     "bytes": 103428353
+    }
+   },
+   "headers": {
+    "mp3": {
+     "{\"magic\":\"...|\"}": 1,
+     "{\"magic\":\"...L\"}": 1,
+     "{\"magic\":\"..pd\"}": 1,
+     "{\"magic\":\"...l\"}": 1
+    },
+    "roq": {
+     "{\"magic\":\"....\"}": 4
+    }
+   }
+  },
+  {
+   "file": "pak4_english.pk3",
+   "entries": 44,
+   "byExt": {
+    "tlk": {
+     "count": 43,
+     "bytes": 108628
+    }
+   },
+   "byTop": {
+    "dialog": {
+     "count": 43,
+     "bytes": 108628
+    }
+   },
+   "headers": {}
+  },
+  {
+   "file": "pak5_mod.pk3",
+   "entries": 30,
+   "byExt": {
+    "ftx": {
+     "count": 30,
+     "bytes": 38961512
+    }
+   },
+   "byTop": {
+    "models": {
+     "count": 30,
+     "bytes": 38961512
+    }
+   },
+   "headers": {
+    "ftx": {
+     "{\"flag\":0}": 24,
+     "{\"flag\":1}": 6
+    }
+   }
+  },
+  {
+   "file": "loc\\base_d.pk3",
+   "entries": 88,
+   "byExt": {
+    "scr": {
+     "count": 3,
+     "bytes": 5599
+    },
+    "tga": {
+     "count": 72,
+     "bytes": 7851104
+    },
+    "urc": {
+     "count": 6,
+     "bytes": 64806
+    }
+   },
+   "byTop": {
+    "ui": {
+     "count": 80,
+     "bytes": 7724857
+    },
+    "gfx": {
+     "count": 1,
+     "bytes": 196652
+    }
+   },
+   "headers": {
+    "tga": {
+     "{\"bpp\":24,\"type\":2}": 32,
+     "{\"bpp\":32,\"type\":2}": 40
+    }
+   }
+  },
+  {
+   "file": "loc\\base_f.pk3",
+   "entries": 1145,
+   "byExt": {
+    "mp3": {
+     "count": 1,
+     "bytes": 1903636
+    },
+    "tlk": {
+     "count": 43,
+     "bytes": 119109
+    },
+    "tga": {
+     "count": 73,
+     "bytes": 7797900
+    },
+    "lip": {
+     "count": 476,
+     "bytes": 216804
+    },
+    "wav": {
+     "count": 477,
+     "bytes": 112787352
+    },
+    "(none)": {
+     "count": 18,
+     "bytes": 0
+    },
+    "scr": {
+     "count": 3,
+     "bytes": 5851
+    },
+    "urc": {
+     "count": 6,
+     "bytes": 65509
+    }
+   },
+   "byTop": {
+    "video": {
+     "count": 1,
+     "bytes": 1903636
+    },
+    "dialog": {
+     "count": 43,
+     "bytes": 119109
+    },
+    "gfx": {
+     "count": 1,
+     "bytes": 196652
+    },
+    "sound": {
+     "count": 971,
+     "bytes": 113004156
+    },
+    "textures": {
+     "count": 1,
+     "bytes": 12332
+    },
+    "ui": {
+     "count": 80,
+     "bytes": 7660276
+    }
+   },
+   "headers": {
+    "mp3": {
+     "{\"magic\":\"...d\"}": 1
+    },
+    "tga": {
+     "{\"bpp\":24,\"type\":2}": 33,
+     "{\"bpp\":32,\"type\":2}": 40
+    },
+    "wav": {
+     "{\"fmt\":1,\"rate\":22050,\"ch\":1}": 477
+    }
+   }
+  },
+  {
+   "file": "loc\\base_g.pk3",
+   "entries": 1157,
+   "byExt": {
+    "tga": {
+     "count": 73,
+     "bytes": 7863436
+    },
+    "scr": {
+     "count": 6,
+     "bytes": 57187
+    },
+    "urc": {
+     "count": 6,
+     "bytes": 65334
+    },
+    "mp3": {
+     "count": 1,
+     "bytes": 1903053
+    },
+    "tlk": {
+     "count": 43,
+     "bytes": 106271
+    },
+    "txt": {
+     "count": 1,
+     "bytes": 3836
+    },
+    "lip": {
+     "count": 477,
+     "bytes": 196405
+    },
+    "wav": {
+     "count": 478,
+     "bytes": 101806340
+    },
+    "(none)": {
+     "count": 18,
+     "bytes": 0
+    }
+   },
+   "byTop": {
+    "textures": {
+     "count": 1,
+     "bytes": 12332
+    },
+    "ui": {
+     "count": 80,
+     "bytes": 7725409
+    },
+    "video": {
+     "count": 1,
+     "bytes": 1903053
+    },
+    "dialog": {
+     "count": 44,
+     "bytes": 110107
+    },
+    "gfx": {
+     "count": 1,
+     "bytes": 196652
+    },
+    "maps": {
+     "count": 3,
+     "bytes": 51564
+    },
+    "sound": {
+     "count": 973,
+     "bytes": 102002745
+    }
+   },
+   "headers": {
+    "tga": {
+     "{\"bpp\":24,\"type\":2}": 33,
+     "{\"bpp\":32,\"type\":2}": 40
+    },
+    "mp3": {
+     "{\"magic\":\"..pd\"}": 1
+    },
+    "wav": {
+     "{\"fmt\":1,\"rate\":22050,\"ch\":1}": 478
+    }
+   }
+  },
+  {
+   "file": "loc\\base_s.pk3",
+   "entries": 1218,
+   "byExt": {
+    "tga": {
+     "count": 73,
+     "bytes": 7765132
+    },
+    "scr": {
+     "count": 3,
+     "bytes": 5779
+    },
+    "urc": {
+     "count": 6,
+     "bytes": 64935
+    },
+    "mp3": {
+     "count": 1,
+     "bytes": 1898380
+    },
+    "tlk": {
+     "count": 44,
+     "bytes": 112905
+    },
+    "lip": {
+     "count": 515,
+     "bytes": 238222
+    },
+    "wav": {
+     "count": 516,
+     "bytes": 120008002
+    }
+   },
+   "byTop": {
+    "textures": {
+     "count": 1,
+     "bytes": 12332
+    },
+    "ui": {
+     "count": 80,
+     "bytes": 7626862
+    },
+    "video": {
+     "count": 1,
+     "bytes": 1898380
+    },
+    "dialog": {
+     "count": 44,
+     "bytes": 112905
+    },
+    "gfx": {
+     "count": 1,
+     "bytes": 196652
+    },
+    "sound": {
+     "count": 1031,
+     "bytes": 120246224
+    }
+   },
+   "headers": {
+    "tga": {
+     "{\"bpp\":24,\"type\":2}": 33,
+     "{\"bpp\":32,\"type\":2}": 40
+    },
+    "mp3": {
+     "{\"magic\":\"..pd\"}": 1
+    },
+    "wav": {
+     "{\"fmt\":1,\"rate\":22050,\"ch\":1}": 516
+    }
+   }
+  }
+ ]
+}

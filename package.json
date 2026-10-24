@@ -1,0 +1,12 @@
+{
+  "name": "alice-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "cd port/lookingglass && cargo build --release --target wasm32-unknown-unknown",
+    "dev": "node server/server.mjs",
+    "check": "node tools/browser-check.mjs",
+    "build:site": "node tools/build-site.mjs",
+    "serve:site": "node tools/serve-static.mjs dist 8090"
+  }
+}

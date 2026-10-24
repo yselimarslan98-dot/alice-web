@@ -1,0 +1,3 @@
+[target.wasm32-unknown-unknown]
+# miniquad imports its browser functions from gl.js; recent rustc no longer allows undefined imports by default.
+rustflags = ["-C", "link-arg=--allow-undefined", "-C", "target-feature=+simd128"]
