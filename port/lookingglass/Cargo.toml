@@ -29,4 +29,6 @@ sha2 = "=0.10.9"
 opt-level = 1
 
 [profile.release]
-lto = "thin"
+# Whole-program optimisation: slower builds, faster game (the browser build is CPU-bound).
+lto = "fat"
+codegen-units = 1

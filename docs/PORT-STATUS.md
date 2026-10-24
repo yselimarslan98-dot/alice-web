@@ -31,7 +31,7 @@ yükleyicisi senkron olduğu için oyun, senkron dosya okumasının mümkün old
 | Eski sunucu kayıtlarının (`userdata/`) aktarımı | ✅ yerel modda bir kez |
 | Hata mesajları sayfada | ✅ |
 | Orijinal hareket hızları (koşma 173, yürüme 51,7 u/s; varsayılan koşma) | ✅ `?fast-movement` eski hızlar |
-| 60 fps kilidi (`#fps=N`, `#fps=0`) | ✅ |
+| Ayarlar paneli: FPS sınırı (varsayılan sınırsız, `#fps=N`), çizim çözünürlüğü (otomatik ≤1080p, %100/75/50), istatistik kutusu (kapalı/FPS/ayrıntılı) | ✅ |
 | Xbox / PS5 kontrolcüsü (Gamepad API → LG'nin XInput katmanı; PS tuş adları) | ✅ (sahte kontrolcüyle test edildi) |
 | Ham fare girdisi (`unadjustedMovement`) | ✅ (gerçek tarayıcıda; headless'ta yok) |
 
@@ -46,6 +46,7 @@ Performans iyileştirmeleri (bu dönem):
 - Duyulamayan döngüsel ortam seslerini park etmek: hedge3 ses karıştırma 322 → 72 ms/s, 19 → 40 fps.
 - Akustik filtre katsayısını önbelleğe almak (örnek başına `exp()` yerine).
 - WebGL2, kopyasız uniform/buffer yüklemeleri, uniform önbelleği (çağrıların ~%92'si atlanıyor).
+- Tam LTO (`lto = "fat"`, `codegen-units = 1`) ve daha hafif GL köprüsü: hedge3 kilitsiz ~34 → ~39 fps (headless, gürültülü ölçüm). Derleme ~11 dk.
 
 ## Bilinen eksikler
 

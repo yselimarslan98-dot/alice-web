@@ -72,7 +72,7 @@ for (const step of script) {
   }
   if (op === 'text') console.log('text', a, JSON.stringify(await evaluate(`document.querySelector(${JSON.stringify(a)})?.textContent`)));
   if (op === 'wait') await sleep(Number(a) * 1000);
-  if (op === 'stats') console.log('stats', new Date().toISOString().slice(11, 19), await evaluate("document.getElementById('hud')?.textContent"));
+  if (op === 'stats') console.log('stats', new Date().toISOString().slice(11, 19), await evaluate("document.getElementById('hud')?.textContent || JSON.stringify(window.lgStats)"));
   if (op === 'profile') {
     await send('Profiler.enable');
     await send('Profiler.start');

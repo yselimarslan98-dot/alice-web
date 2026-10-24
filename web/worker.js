@@ -133,8 +133,10 @@ function readPack(name, offset, n, dst) {
 const glCounts = { draws: 0, uniforms: 0, skipped: 0 };
 function installFastGl(env) {
   let heap = null, f32 = null, i32 = null, u8 = null;
+  // Runs tens of thousands of times a frame: reading wasm_memory.buffer is a getter call, while a
+  // buffer replaced by memory growth is detached and reports byteLength 0.
   const views = () => {
-    if (heap !== wasm_memory.buffer) {
+    if (heap === null || heap.byteLength === 0) {
       heap = wasm_memory.buffer;
       f32 = new Float32Array(heap);
       i32 = new Int32Array(heap);
@@ -158,9 +160,12 @@ function installFastGl(env) {
     return true;
   };
   let webgl2 = null;
+  // One wrapper per call (counting included): every extra layer is paid on each GL call.
   const fast = (name, impl) => {
     const original = env[name];
+    const uniform = name.startsWith('glUniform');
     env[name] = function (a, b, c, d) {
+      if (uniform) glCounts.uniforms++;
       if (webgl2 === null) webgl2 = gl instanceof WebGL2RenderingContext;
       return webgl2 ? impl(a, b, c, d) : original(a, b, c, d);
     };
@@ -194,6 +199,7 @@ function installFastGl(env) {
   for (const name of Object.keys(env).filter((n) => /^glUniform/.test(n) && !cached.has(n))) {
     const inner = env[name];
     env[name] = function (loc, b, c, d) {
+      glCounts.uniforms++;
       last.delete(loc);
       return inner(loc, b, c, d);
     };
@@ -210,13 +216,6 @@ function installFastGl(env) {
     env[name] = function (a, b, c, d, e) {
       glCounts.draws++;
       return inner(a, b, c, d, e);
-    };
-  }
-  for (const name of Object.keys(env).filter((n) => /^glUniform/.test(n))) {
-    const inner = env[name];
-    env[name] = function (a, b, c, d) {
-      glCounts.uniforms++;
-      return inner(a, b, c, d);
     };
   }
 }
@@ -284,15 +283,14 @@ const lgweb = {
     env.glDepthMask = (flag) => gl.depthMask(!!flag);
   },
   on_init() {
-    // Frame cap (default 60; page fragment #fps=30, #fps=0 for uncapped). The simulation uses
-    // real elapsed time, so skipping display refreshes never changes game speed.
-    const match = options.hash.match(/fps=(\d+)/);
-    const cap = match ? Number(match[1]) : 60;
-    const interval = cap > 0 ? 1000 / cap : 0;
+    // Frame cap from the page's settings (0: every display refresh), changeable while playing.
+    // The simulation uses real elapsed time, so skipping display refreshes never changes game speed.
+    setFrameCap(options.fps);
     const animate = self.animation;
     let due = 0;
     self.animation = function (t) {
       const now = performance.now();
+      const interval = frameInterval;
       if (interval) {
         if (due === 0) due = now;
         if (now < due - 1) {
@@ -326,6 +324,9 @@ function fillAudio(blocks) {
   const out = pcm.subarray(0, filled * AUDIO_BLOCK * 2).slice();
   post({ type: 'audio', pcm: out, blocks }, [out.buffer]);
 }
+
+let frameInterval = 0;
+const setFrameCap = (fps) => { frameInterval = fps > 0 ? 1000 / fps : 0; };
 
 let gameFrames = 0;
 let lastSim = null;
@@ -407,6 +408,9 @@ self.onmessage = async (message) => {
       break;
     case 'gamepads':
       gamepads = m.pads;
+      break;
+    case 'fps':
+      setFrameCap(m.fps);
       break;
   }
 };

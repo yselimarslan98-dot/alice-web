@@ -10,7 +10,60 @@ const siteRoot = async () => (await navigator.storage.getDirectory()).getDirecto
 const $ = (id) => document.getElementById(id);
 const canvas = $('glcanvas');
 const hud = $('hud');
-if (location.hash.includes('nohud')) hud.hidden = true;
+
+// ---------------------------------------------------------------- settings (this browser only)
+// Frame cap (0: every display refresh), render scale and the statistics overlay. The fragment
+// (#fps=N, #nohud, #hud) still overrides them for tests and shared links.
+const SETTINGS_KEY = 'alice-web:settings';
+const settings = { fps: 0, scale: 'auto', hud: 'off' };
+try {
+  Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {});
+} catch {}
+{
+  const fps = location.hash.match(/fps=(\d+)/);
+  if (fps) settings.fps = Number(fps[1]);
+  if (/(^#|&)hud\b/.test(location.hash)) settings.hud = 'full';
+  if (location.hash.includes('nohud')) settings.hud = 'off';
+}
+const saveSettings = () => {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {}
+};
+
+// Device pixels per CSS pixel the game renders at. "auto" keeps full sharpness up to about a
+// 1080p frame and scales down beyond it (4K and scaled high-DPI screens otherwise cost 2-4x).
+function renderDpr() {
+  const dpr = window.devicePixelRatio || 1;
+  if (settings.scale !== 'auto') return dpr * Number(settings.scale);
+  const pixels = canvas.clientWidth * canvas.clientHeight * dpr * dpr;
+  return pixels > 1920 * 1080 ? dpr * Math.sqrt((1920 * 1080) / pixels) : dpr;
+}
+
+function bindSettings() {
+  const fields = { fps: $('set-fps'), scale: $('set-scale'), hud: $('set-hud') };
+  for (const [name, select] of Object.entries(fields)) {
+    // A fragment value missing from the list (e.g. #fps=50) still shows as the current choice.
+    if (![...select.options].some((o) => o.value === String(settings[name]))) select.add(new Option(String(settings[name])));
+    select.value = String(settings[name]);
+    select.addEventListener('change', () => {
+      settings[name] = name === 'fps' ? Number(select.value) : select.value;
+      saveSettings();
+      applySettings();
+    });
+  }
+  $('settings-button').addEventListener('click', () => { $('settings').hidden = !$('settings').hidden; });
+  applySettings();
+}
+
+function applySettings() {
+  hud.hidden = settings.hud === 'off';
+  hud.classList.toggle('compact', settings.hud === 'fps');
+  if (lastStats) showStats(lastStats);
+  if (!worker) return;
+  worker.postMessage({ type: 'fps', fps: settings.fps });
+  worker.postMessage({ type: 'resize', ...cssSize() });
+}
 
 function show(id) {
   for (const el of document.querySelectorAll('.screen')) el.hidden = el.id !== id;
@@ -262,7 +315,7 @@ let worker = null;
 let wantGrab = false;
 
 function cssSize() {
-  return { width: canvas.clientWidth, height: canvas.clientHeight, dpr: window.devicePixelRatio || 1 };
+  return { width: canvas.clientWidth, height: canvas.clientHeight, dpr: renderDpr() };
 }
 
 function start(source, packs) {
@@ -277,8 +330,9 @@ function start(source, packs) {
     size: cssSize(),
     source,
     packs,
-    options: { search: location.search, hash: location.hash },
+    options: { search: location.search, hash: location.hash, fps: settings.fps },
   }, [offscreen]);
+  bindSettings();
   bindInput();
   startAudio();
   pollGamepads();
@@ -331,6 +385,7 @@ const gameKey = (e) => /^F([1-9]|1[0-2])$/.test(e.code) || ['Tab', 'Backspace', 
 function bindInput() {
   canvas.addEventListener('mousemove', (e) => send('canvas', 'mousemove', mouse(e)));
   canvas.addEventListener('mousedown', (e) => {
+    $('settings').hidden = true;
     canvas.focus();
     if (wantGrab && !document.pointerLockElement) {
       // Raw, unaccelerated motion like the native build's raw input.
@@ -346,6 +401,7 @@ function bindInput() {
   }, { passive: false });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   window.addEventListener('keydown', (e) => {
+    if (!$('settings').hidden && $('settings').contains(e.target)) return; // choosing in a list
     if (gameKey(e)) e.preventDefault();
     send('canvas', 'keydown', key(e));
   });
@@ -472,15 +528,39 @@ function scheduleAudio(pcm) {
 }
 
 // ---------------------------------------------------------------- HUD
+let lastStats = null;
+const escapeHtml = (text) => String(text).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+
+// Once a second from the worker. Always recorded (window.lgStats, tests read it); drawn only
+// when the overlay is on.
 function showStats(s) {
-  window.lgStats = s;
-  const mem = performance.memory ? ` heap ${(performance.memory.usedJSHeapSize / 1e6).toFixed(0)} MB` : '';
-  hud.textContent = `${s.fps} fps | wasm ${s.wasmMB} MB${mem} | ${s.source} ${s.reads} reads ${s.readMB} MB ${s.readS} s` +
-    ` | audio ${audio.ctx?.state} peak ${audio.peak.toFixed(2)} underruns ${audio.underruns}` +
-    (s.sim !== undefined ? ` | sim ${s.sim} s/s ${s.ticks} ticks/s move ${s.speed} u/s` : '') +
-    ` | ${s.draws} draws ${s.uniforms} uniforms (${s.skipped} skipped)/frame` +
-    (document.pointerLockElement ? ' | mouse locked' : '');
-  audio.peak = 0;
+  if (s !== lastStats) {
+    s.audio = `${audio.ctx?.state} · tepe ${audio.peak.toFixed(2)} · kesinti ${audio.underruns}`;
+    audio.peak = 0;
+  }
+  window.lgStats = lastStats = s;
+  if (settings.hud === 'off') return;
+  const rate = s.fps >= 55 ? 'good' : s.fps >= 30 ? 'ok' : 'bad';
+  const fps = `<span class="${rate}">${s.fps} fps</span>`;
+  if (settings.hud === 'fps') {
+    hud.innerHTML = fps;
+    return;
+  }
+  const dpr = renderDpr();
+  const width = Math.round(canvas.clientWidth * dpr), height = Math.round(canvas.clientHeight * dpr);
+  const scale = Math.round((100 * dpr) / (window.devicePixelRatio || 1));
+  const mem = performance.memory ? ` · JS ${(performance.memory.usedJSHeapSize / 1e6).toFixed(0)} MB` : '';
+  const row = (label, text) => `<span class="label">${label.padEnd(11)}</span>${escapeHtml(text)}`;
+  hud.innerHTML = [
+    `${fps} <span class="label">· ${s.fps ? (1000 / s.fps).toFixed(1) : '-'} ms/kare · sınır ${settings.fps || 'ekran'}</span>`,
+    row('Çözünürlük', `${width}×${height} (%${scale})`),
+    row('Bellek', `wasm ${s.wasmMB} MB${mem}`),
+    row('Çizim', `${s.draws} çağrı · ${s.uniforms} uniform (${s.skipped} atlandı) / kare`),
+    s.sim !== undefined ? row('Simülasyon', `${s.sim} s/s · ${s.ticks} tick/s · hız ${s.speed} u/s`) : null,
+    row('Ses', s.audio),
+    row('Veri', `${s.source} · ${s.reads} okuma · ${s.readMB} MB · ${s.readS} s`),
+    document.pointerLockElement ? row('Fare', 'kilitli') : null,
+  ].filter(Boolean).join('\n');
 }
 
 setup();
