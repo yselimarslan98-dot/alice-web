@@ -9,6 +9,7 @@ Dosyalar yalnızca o tarayıcının bu siteye ayrılmış özel deposuna (OPFS) 
 sunucuya yüklenmez. Sonraki ziyaretlerde oyun doğrudan açılır. Kayıtlar da tarayıcıda saklanır.
 
 - [docs/PUBLISHING.md](docs/PUBLISHING.md): GitHub Pages'te yayınlama adımları
+- [docs/OWN-BUCKET.md](docs/OWN-BUCKET.md): oyun dosyalarını kendi özel bulut deponla otomatik yüklemek
 - [docs/PORT-STATUS.md](docs/PORT-STATUS.md): güncel durum, ölçümler, bilinen eksikler
 - [docs/FINDINGS.md](docs/FINDINGS.md) · [docs/PLAN.md](docs/PLAN.md) · [docs/SPIKE-C.md](docs/SPIKE-C.md): keşif ve kararlar
 

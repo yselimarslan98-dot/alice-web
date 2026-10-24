@@ -1,6 +1,7 @@
 // Page side: game-data setup, the game worker, input forwarding, pointer lock, audio and HUD.
-// Game data never leaves this computer: on a static host the user's PK3s are copied once
-// into this site's private browser storage (OPFS); the local dev server reads them in place.
+// Game data is never uploaded by the site: on a static host the PK3s are copied once into this
+// site's private browser storage (OPFS), either from a folder the player picks or downloaded from
+// the player's own private S3-compatible bucket (setup link); the local dev server reads them in place.
 'use strict';
 
 // All site data lives under one OPFS folder: GitHub Pages projects of one account share an origin.
@@ -58,6 +59,7 @@ function pickBaseFiles(files) {
   });
 }
 
+// files: [{ name, size, stream() }] (File objects, or remote objects whose stream() is async).
 async function copyToBrowser(files) {
   show('copying');
   // Ask the browser not to evict the copy; never wait on it (a prompt may stay unanswered).
@@ -65,10 +67,13 @@ async function copyToBrowser(files) {
   const dir = await packsDir();
   const total = files.reduce((a, f) => a + f.size, 0);
   let done = 0;
-  for (const file of files) {
+  // pak0.pk3 marks a complete copy (setup checks for it), so it is written last: an OPFS
+  // writable only replaces the file on close(), and an interrupted copy then simply restarts.
+  const isPak0 = (f) => f.name.toLowerCase() === 'pak0.pk3';
+  for (const file of [...files.filter((f) => !isPak0(f)), ...files.filter(isPak0)]) {
     const handle = await dir.getFileHandle(file.name, { create: true });
     const writable = await handle.createWritable();
-    const reader = file.stream().getReader();
+    const reader = (await file.stream()).getReader();
     for (;;) {
       const { value, done: end } = await reader.read();
       if (end) break;
@@ -103,9 +108,63 @@ async function importLegacySaves() {
   }
 }
 
+// ---------------------------------------------------------------- the player's own bucket
+// The bucket config (with a read-only key) arrives once through a setup link
+// (#remote=<base64url JSON>, a URL fragment, so it reaches no server) or the setup form,
+// and stays in this browser's OPFS so the packs can be fetched again if the browser evicts them.
+async function readRemoteConfig() {
+  try {
+    const file = await (await (await siteRoot()).getFileHandle('remote.json')).getFile();
+    return JSON.parse(await file.text());
+  } catch {
+    return null;
+  }
+}
+
+async function saveRemoteConfig(config) {
+  const writable = await (await (await siteRoot()).getFileHandle('remote.json', { create: true })).createWritable();
+  await writable.write(JSON.stringify(config));
+  await writable.close();
+}
+
+// Takes #remote=... out of the address bar (and out of the options passed to the game).
+function takeLinkConfig() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const value = params.get('remote');
+  if (value === null) return null;
+  params.delete('remote');
+  const rest = params.toString();
+  history.replaceState(null, '', location.pathname + location.search + (rest ? `#${rest}` : ''));
+  return value;
+}
+
+async function downloadFromBucket(config) {
+  const s3 = await import('./s3.js');
+  show('copying');
+  $('copy-text').textContent = 'Depoya bağlanılıyor…';
+  let objects;
+  try {
+    objects = await s3.listObjects(config);
+  } catch (err) {
+    throw new Error(`depo listelenemedi (${err.message}). Adresi, anahtarı ve depodaki CORS ayarını kontrol edin.`);
+  }
+  const packs = objects.filter((o) => /\.pk3$/i.test(o.name) && !o.name.includes('/'));
+  if (!packs.some((o) => o.name.toLowerCase() === 'pak0.pk3')) throw new Error('depoda pak0.pk3 bulunamadı.');
+  await copyToBrowser(packs.map((o) => ({ ...o, stream: async () => (await s3.getObject(config, o.name)).body })));
+}
+
+async function useBucket(config) {
+  try {
+    await downloadFromBucket(config);
+  } catch (err) {
+    return fatal(`Oyun dosyaları indirilemedi: ${err.message}`);
+  }
+  start('opfs');
+}
+
 async function clearBrowserData() {
   const root = await siteRoot();
-  for (const name of ['packs', 'userdata']) {
+  for (const name of ['packs', 'userdata', 'remote.json']) {
     try { await root.removeEntry(name, { recursive: true }); } catch {}
   }
 }
@@ -119,8 +178,33 @@ async function setup() {
     await importLegacySaves();
     return start('http', dev);
   }
-  if ((await storedPacks()).some((n) => n.toLowerCase() === 'pak0.pk3')) return start('opfs');
+  const fromLink = takeLinkConfig();
+  const haveData = (await storedPacks()).some((n) => n.toLowerCase() === 'pak0.pk3');
+  let remote = await readRemoteConfig();
+  if (fromLink) {
+    try {
+      remote = (await import('./s3.js')).decodeConfig(fromLink);
+    } catch (err) {
+      return fatal(`Kurulum bağlantısı okunamadı: ${err.message}`);
+    }
+    await saveRemoteConfig(remote);
+  }
+  if (haveData) return start('opfs');
+  if (remote) return useBucket(remote);
   show('setup');
+  $('link-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = $('link-input').value.trim();
+    let config;
+    try {
+      config = (await import('./s3.js')).decodeConfig(/[#&]remote=([^&]+)/.exec(text)?.[1] || text);
+    } catch (err) {
+      $('setup-error').textContent = `Kurulum bağlantısı okunamadı: ${err.message}`;
+      return;
+    }
+    await saveRemoteConfig(config);
+    useBucket(config);
+  });
   $('folder').addEventListener('change', async (e) => {
     const files = pickBaseFiles([...e.target.files]);
     if (!files) {

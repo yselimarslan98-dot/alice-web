@@ -1,0 +1,12 @@
+{
+  "endpoint": "https://<HESAP_ID>.r2.cloudflarestorage.com",
+  "bucket": "alice",
+  "region": "auto",
+  "prefix": "",
+  "accessKeyId": "<okuma+yazma anahtarı>",
+  "secretAccessKey": "<okuma+yazma gizli anahtarı>",
+  "readAccessKeyId": "<yalnızca okuma anahtarı>",
+  "readSecretAccessKey": "<yalnızca okuma gizli anahtarı>",
+  "siteUrl": "https://yselimarslan98-dot.github.io/alice-web/",
+  "origins": ["https://yselimarslan98-dot.github.io", "http://127.0.0.1:8090"]
+}

@@ -15,9 +15,14 @@
     .panel { max-width: 560px; background: var(--panel); border: 1px solid #3a3027; border-radius: 10px; padding: 28px 32px; }
     h1 { margin: 0 0 12px; font-size: 26px; font-weight: normal; color: var(--accent); }
     p { margin: 0 0 12px; color: var(--muted); }
-    label.button { display: inline-block; margin-top: 8px; padding: 10px 18px; border-radius: 6px; cursor: pointer;
+    .button { display: inline-block; margin-top: 8px; padding: 10px 18px; border-radius: 6px; cursor: pointer;
       background: var(--accent); color: #1b140c; font-weight: bold; }
     label.button input { display: none; }
+    button.button { border: 0; font: inherit; font-weight: bold; }
+    hr { border: 0; border-top: 1px solid #3a3027; margin: 20px 0 16px; }
+    #link-form { display: flex; gap: 8px; flex-wrap: wrap; }
+    #link-input { flex: 1; min-width: 200px; margin-top: 8px; padding: 9px 10px; border-radius: 6px; border: 1px solid #3a3027;
+      background: var(--bg); color: var(--fg); font: 14px monospace; }
     progress { width: 100%; height: 14px; }
     .error { color: #e08a7a; }
     #boot { position: fixed; right: 48px; bottom: 40px; font-size: 28px; pointer-events: none; }
@@ -33,6 +38,13 @@
       <p>Dosyalar (~660 MB) yalnızca bu tarayıcının bu siteye ayrılmış özel deposuna kopyalanır; hiçbir
         sunucuya yüklenmez. Bu bir kez yapılır, sonraki girişlerde oyun doğrudan açılır.</p>
       <label class="button">Alice klasörünü seç<input id="folder" type="file" webkitdirectory multiple></label>
+      <hr>
+      <p>Oyun dosyalarını kendi özel bulut deponuza (Cloudflare R2, Backblaze B2, S3) koyduysanız kişisel
+        kurulum bağlantınızı açın ya da buraya yapıştırın; dosyalar oradan bu tarayıcıya bir kez indirilir.</p>
+      <form id="link-form">
+        <input id="link-input" type="password" placeholder="Kurulum bağlantısı (…#remote=…)" autocomplete="off">
+        <button class="button" type="submit">İndir ve oyna</button>
+      </form>
       <p id="setup-error" class="error"></p>
     </div>
   </div>

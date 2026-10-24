@@ -11,3 +11,5 @@ config.json
 *.tga
 target/
 userdata/
+# bucket keys for tools/upload-s3.mjs
+s3.json
