@@ -388,11 +388,20 @@ function readPad(p) {
   };
 }
 
+// The game stays on the first pad it finds, so it is shown only one: the one used last (with
+// an Xbox and a PlayStation pad both connected, whichever is picked up just works).
+let activePad = null;
+const padActive = (s) => s.buttons || s.lt > 30 || s.rt > 30 || s.axes.some((v) => Math.abs(v) > 0.3 * 32767);
+
 function pollGamepads() {
   const pads = [null, null, null, null];
+  const seen = new Map();
   for (const p of navigator.getGamepads?.() || []) {
-    if (p && p.connected && p.index < 4) pads[p.index] = readPad(p);
+    if (p && p.connected) seen.set(p.index, readPad(p));
   }
+  for (const [index, state] of seen) if (padActive(state) && index !== activePad) activePad = index;
+  if (!seen.has(activePad)) activePad = seen.size ? seen.keys().next().value : null;
+  if (activePad !== null) pads[0] = seen.get(activePad);
   const state = JSON.stringify(pads);
   if (state !== lastPads) {
     lastPads = state;
@@ -404,7 +413,18 @@ function pollGamepads() {
   requestAnimationFrame(pollGamepads);
 }
 
-window.addEventListener('gamepadconnected', (e) => console.log(`Kontrolcü bağlandı: ${e.gamepad.id} (${e.gamepad.mapping || 'standart değil'})`));
+let toastTimer = 0;
+function toast(text) {
+  $('toast').textContent = text;
+  $('toast').hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 5000);
+}
+window.addEventListener('gamepadconnected', (e) => {
+  const name = e.gamepad.id.replace(/\s*\(.*$/, '') || 'kontrolcü';
+  toast(`Kontrolcü algılandı: ${name}${e.gamepad.mapping === 'standard' ? '' : ' (standart olmayan düzen)'}`);
+});
+window.addEventListener('gamepaddisconnected', () => toast('Kontrolcü bağlantısı kesildi'));
 
 // ---------------------------------------------------------------- audio
 // The worker mixes 44.1 kHz stereo in Rust; we keep about LEAD seconds scheduled ahead.
