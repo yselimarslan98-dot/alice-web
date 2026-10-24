@@ -48,11 +48,14 @@ Performans iyileştirmeleri (bu dönem):
 - Akustik filtre katsayısını önbelleğe almak (örnek başına `exp()` yerine).
 - WebGL2, kopyasız uniform/buffer yüklemeleri, uniform önbelleği (çağrıların ~%92'si atlanıyor).
 - Tam LTO (`lto = "fat"`, `codegen-units = 1`) ve daha hafif GL köprüsü: hedge3 kilitsiz ~34 → ~39 fps (headless, gürültülü ölçüm). Derleme ~11 dk.
+- GL durum ve uniform tekrarlarını Rust tarafında atlamak (yamalı miniquad, [port/miniquad/LGWEB.md](../port/miniquad/LGWEB.md))
+  ve `draw_batch`'te yalnızca görünen üçgenlerin köşelerini işlemek: kare başına uniform çağrısı 41.224 → 66,
+  hedge3 kilitsiz ~39 → ~49 fps (headless, thin LTO, 3 tur).
 
 ## Bilinen eksikler
 
-1. **Performans:** En ağır haritalarda (hedge2/hedge3) kilitsiz ~40 fps (headless). Kalan yük LG'nin
-   çizim döngüsü (`draw_batch`) ve çarpışma (kenar tutunma) kodunda.
+1. **Performans:** En ağır haritalarda (hedge2/hedge3) kilitsiz ~50 fps (headless). Kalan yük LG'nin
+   çarpışma kodunda (kenar tutunma, NPC süpürmeleri), `render_fx`'te ve köşe verisinin her karede GPU'ya yüklenmesinde.
 2. **LG kaynaklı sadakat farkları:** Ara sahne kurgusu, efektler ve düşman davranışı LG'nin kendi
    yaklaşımları (bkz. LG README "Current status"). Hız düzeltmesi sonrası LG'nin elle yazılmış bazı
    sahnelerinde zamanlama sorunu çıkabilir (`?fast-movement` geri dönüş yolu).
@@ -60,4 +63,5 @@ Performans iyileştirmeleri (bu dönem):
 4. **Tek sekme:** OPFS senkron tutamakları dosyaları kilitler.
 5. **Upstream:** LG `055b1d1`. Yerel yamalar: `assets.rs` (wasm pk3 köprüsü), `audio.rs` (web
    çıkışı, park etme), `acoustics.rs`, `movement.rs` + `preferences.rs` (hızlar), `save.rs`,
-   `viewer.rs` (yükleme karesi, WebGL2), `main.rs`, `input.rs` + kontrolcü ipuçları (`hud.rs`, `menu.rs`, `movie.rs`, `chapters.rs`), yeni `userfs.rs`, mekanik `as u64`.
+   `viewer.rs` (yükleme karesi, WebGL2), `main.rs`, `input.rs` + kontrolcü ipuçları (`hud.rs`, `menu.rs`, `movie.rs`, `chapters.rs`), yeni `userfs.rs`, mekanik `as u64`,
+   `render.rs` (`draw_batch` kısmi görünürlük). miniquad: `port/miniquad` (bkz. LGWEB.md).

@@ -3,9 +3,15 @@ use std::ffi::CString;
 use crate::{window, ResourceManager};
 
 mod cache;
+mod dedup;
 
 use super::*;
 use cache::*;
+// lgweb: explicit imports take precedence over the raw functions from the glob above.
+use dedup::{
+    glBindFramebuffer, glDeleteFramebuffers, glDeleteProgram, glDepthFunc, glDisable, glEnable,
+    glFrontFace, glScissor, glUseProgram, glViewport,
+};
 
 /// Raw OpenGL bindings
 /// Highly unsafe, some of the functions could be missing due to incompatible GL version
@@ -43,6 +49,10 @@ struct ShaderInternal {
     program: GLuint,
     images: Vec<ShaderImage>,
     uniforms: Vec<ShaderUniform>,
+    // lgweb: a program keeps its uniform values, so only changed ones are uploaded: the uniform
+    // bytes last sent (None before the first upload), and whether the sampler units are set.
+    last_uniforms: Option<Vec<u8>>,
+    samplers_set: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -639,6 +649,8 @@ fn load_shader_internal(
             program,
             images,
             uniforms,
+            last_uniforms: None,
+            samplers_set: false,
         })
     }
 }
@@ -1444,7 +1456,10 @@ impl RenderingBackend for GlContext {
         textures: &[TextureId],
     ) {
         let pip = &self.pipelines[self.cache.cur_pipeline.unwrap().0];
-        let shader = &self.shaders[pip.shader.0];
+        let shader = &mut self.shaders[pip.shader.0];
+        // lgweb: image n always samples texture unit n; the program remembers it.
+        let set_samplers = !shader.samplers_set;
+        shader.samplers_set = true;
 
         for (n, shader_image) in shader.images.iter().enumerate() {
             let bindings_image = textures
@@ -1458,7 +1473,9 @@ impl RenderingBackend for GlContext {
                 };
                 unsafe {
                     self.cache.bind_texture(n, texture.params.kind.into(), raw);
-                    glUniform1i(gl_loc, n as i32);
+                    if set_samplers {
+                        glUniform1i(gl_loc, n as i32);
+                    }
                 }
             }
         }
@@ -1536,7 +1553,10 @@ impl RenderingBackend for GlContext {
 
     fn apply_uniforms_from_bytes(&mut self, uniform_ptr: *const u8, size: usize) {
         let pip = &self.pipelines[self.cache.cur_pipeline.unwrap().0];
-        let shader = &self.shaders[pip.shader.0];
+        let shader = &mut self.shaders[pip.shader.0];
+        // lgweb: upload only the uniforms whose bytes differ from what this program last received.
+        let bytes = unsafe { std::slice::from_raw_parts(uniform_ptr, size) };
+        let mut last = shader.last_uniforms.take().filter(|l| l.len() == size);
 
         let mut offset = 0;
 
@@ -1552,7 +1572,20 @@ impl RenderingBackend for GlContext {
                 let data = (uniform_ptr as *const f32).add(offset);
                 let data_int = (uniform_ptr as *const i32).add(offset);
 
-                if let Some(gl_loc) = uniform.gl_loc {
+                let range = offset * 4
+                    ..(offset + uniform.uniform_type.size() / 4 * uniform.array_count as usize) * 4;
+                let unchanged = match (&mut last, bytes.get(range.clone())) {
+                    (Some(last), Some(now)) => {
+                        let same = last[range.clone()] == *now;
+                        if !same {
+                            last[range].copy_from_slice(now);
+                        }
+                        same
+                    }
+                    _ => false,
+                };
+
+                if let (Some(gl_loc), false) = (uniform.gl_loc, unchanged) {
                     match uniform.uniform_type {
                         Float1 => {
                             glUniform1fv(gl_loc, uniform.array_count, data);
@@ -1586,6 +1619,7 @@ impl RenderingBackend for GlContext {
             }
             offset += uniform.uniform_type.size() / 4 * uniform.array_count as usize;
         }
+        shader.last_uniforms = Some(last.unwrap_or_else(|| bytes.to_vec()));
     }
 
     fn clear(

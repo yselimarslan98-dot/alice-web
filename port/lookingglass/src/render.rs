@@ -296,6 +296,17 @@ thread_local! {
     // map transitions keep two scenes alive; share immutable pipeline definitions.
     // Weak entries release GPU resources when the last scene goes away.
     static WORLD_MATERIALS: RefCell<BTreeMap<usize, Weak<Material>>> = RefCell::default();
+    // lgweb: draw_batch's reusable buffers for partly visible batches.
+    static COMPACT: RefCell<Compact> = RefCell::default();
+}
+/// The vertices a partly visible batch's remaining triangles use, in first-use order, and
+/// those triangles renumbered onto them (`remap`: original vertex -> compact index).
+#[derive(Default)]
+struct Compact {
+    remap: Vec<u16>,
+    used: Vec<u16>,
+    vertices: Vec<Vertex>,
+    indices: Vec<u16>,
 }
 pub(crate) fn world_material(index: usize) -> Result<Rc<Material>> {
     WORLD_MATERIALS.with(|cache| {
@@ -636,19 +647,44 @@ fn draw_batch(
         triangles.sort_by(|a, b| distance(b).total_cmp(&distance(a)));
         batch.mesh.indices = triangles.into_iter().flatten().collect();
     }
+    // lgweb: when culling or detail levels dropped triangles, shade only the vertices the rest
+    // use, and renumber the triangles once for all layers (it used to happen per layer).
+    let partial = batch.mesh.indices.len() < batch.full_indices.len();
+    let mut compact = COMPACT.take();
+    compact.used.clear();
+    if partial {
+        compact.remap.clear();
+        compact.remap.resize(batch.mesh.vertices.len(), u16::MAX);
+        compact.indices.clear();
+        for &i in &batch.mesh.indices {
+            let slot = &mut compact.remap[i as usize];
+            if *slot == u16::MAX {
+                *slot = compact.used.len() as u16;
+                compact.used.push(i);
+            }
+            compact.indices.push(*slot);
+        }
+    }
     let mut queued = Vec::new();
     for layer in &batch.layers {
         let material = &materials[layer.material];
-        for (j, (v, base)) in batch.mesh.vertices.iter_mut().zip(&batch.base).enumerate() {
-            let mut n = batch.normals[j];
-            for deform in &batch.deforms {
-                n = deform.normal(base.position, n, time);
-            }
-            let n = batch
-                .motion
-                .as_ref()
-                .map_or(n, |m| m.normal(n, time));
-            let normal = transform.map_or(n, |(_, _, r)| *r * n);
+        // Normals and the eye direction only matter to environment mapping and view-angle alpha.
+        let wants_normal = layer.spec.environment || layer.spec.dot_alpha.is_some();
+        let shade = |j: usize, v: &mut Vertex| {
+            let base = &batch.base[j];
+            let normal = if wants_normal {
+                let mut n = batch.normals[j];
+                for deform in &batch.deforms {
+                    n = deform.normal(base.position, n, time);
+                }
+                let n = batch
+                    .motion
+                    .as_ref()
+                    .map_or(n, |m| m.normal(n, time));
+                transform.map_or(n, |(_, _, r)| *r * n)
+            } else {
+                Vec3::ZERO
+            };
             let uv = if batch.sky && !batch.portal {
                 let ray = (v.position - camera).normalize_or_zero();
                 // Infinite, curved cloud projection; no translation with player motion.
@@ -658,20 +694,26 @@ fn draw_batch(
             };
             v.uv = layer.spec.view_uv(uv, v.position, normal, camera, time);
             v.color = base.color;
-            v.color[3] = (255.
-                * layer.spec.opacity(
-                    normal,
-                    (camera - v.position).normalize_or_zero(),
-                    base.color[3],
-                )) as u8;
+            let eye = if layer.spec.dot_alpha.is_some() {
+                (camera - v.position).normalize_or_zero()
+            } else {
+                Vec3::ZERO
+            };
+            v.color[3] = (255. * layer.spec.opacity(normal, eye, base.color[3])) as u8;
+        };
+        if partial {
+            for &j in &compact.used {
+                shade(j as usize, &mut batch.mesh.vertices[j as usize]);
+            }
+        } else {
+            for (j, v) in batch.mesh.vertices.iter_mut().enumerate() {
+                shade(j, v);
+            }
         }
         batch.mesh.texture = Some(layer.textures[layer.spec.frame(time)].clone());
         if crate::render_fx::active() && batch.transparent() && !backdrop && !batch.sky {
             if let Ok(mut pass) = crate::render_fx::pass(
-                selected_mesh(
-                    &batch.mesh,
-                    batch.mesh.indices.len() < batch.full_indices.len(),
-                ),
+                selected_mesh(&batch.mesh, partial),
                 &layer.spec,
                 false,
                 layer.lit,
@@ -736,12 +778,24 @@ fn draw_batch(
             },
         );
         gl_use_material(material);
-        if batch.mesh.indices.len() < batch.full_indices.len() {
-            draw_mesh(&selected_mesh(&batch.mesh, true));
+        if partial {
+            compact.vertices.clear();
+            compact
+                .vertices
+                .extend(compact.used.iter().map(|&j| batch.mesh.vertices[j as usize]));
+            let mesh = Mesh {
+                vertices: std::mem::take(&mut compact.vertices),
+                indices: std::mem::take(&mut compact.indices),
+                texture: batch.mesh.texture.clone(),
+            };
+            draw_mesh(&mesh);
+            compact.vertices = mesh.vertices;
+            compact.indices = mesh.indices;
         } else {
             draw_mesh(&batch.mesh);
         }
     }
+    COMPACT.set(compact);
     if !queued.is_empty() {
         crate::render_fx::submit(queued, true);
     }

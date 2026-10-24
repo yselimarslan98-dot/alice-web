@@ -32,3 +32,7 @@ opt-level = 1
 # Whole-program optimisation: slower builds, faster game (the browser build is CPU-bound).
 lto = "fat"
 codegen-units = 1
+
+# lgweb: miniquad 0.4.8 with redundant GL state calls skipped (port/miniquad/LGWEB.md).
+[patch.crates-io]
+miniquad = { path = "../miniquad" }
