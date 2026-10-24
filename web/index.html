@@ -18,10 +18,10 @@
     .button { display: inline-block; margin-top: 8px; padding: 10px 18px; border-radius: 6px; cursor: pointer;
       background: var(--accent); color: #1b140c; font-weight: bold; }
     label.button input { display: none; }
-    button.button { border: 0; font: inherit; font-weight: bold; }
+    button.button { border: 0; font: inherit; font-weight: bold; width: 100%; }
     hr { border: 0; border-top: 1px solid #3a3027; margin: 20px 0 16px; }
-    #link-form { display: flex; gap: 8px; flex-wrap: wrap; }
-    #link-input { flex: 1; min-width: 200px; margin-top: 8px; padding: 9px 10px; border-radius: 6px; border: 1px solid #3a3027;
+    #link-form { display: flex; gap: 8px; flex-direction: column; }
+    #link-input { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 9px 10px; border-radius: 6px; border: 1px solid #3a3027;
       background: var(--bg); color: var(--fg); font: 14px monospace; }
     progress { width: 100%; height: 14px; }
     .error { color: #e08a7a; }
@@ -36,21 +36,19 @@
   <div id="setup" class="screen" hidden>
     <div class="panel">
       <h1>American McGee's Alice</h1>
-      <p>Oynamak için kendi Alice (2000) kurulumunuzdaki dosyalar gerekir. Bilgisayarınızdaki
-        <b>Alice1\bin\base</b> klasörünü (ya da Alice klasörünün tamamını) seçin.</p>
-      <p>Dosyalar (~660 MB) yalnızca bu tarayıcının bu siteye ayrılmış özel deposuna kopyalanır; hiçbir
-        sunucuya yüklenmez. Bu bir kez yapılır, sonraki girişlerde oyun doğrudan açılır.</p>
-      <label class="button">Alice klasörünü seç<input id="folder" type="file" webkitdirectory multiple></label>
-      <hr>
-      <p id="link-text">Oyun dosyalarını kendi özel bulut deponuza (Cloudflare R2, Backblaze B2, S3) koyduysanız kişisel
-        kurulum bağlantınızı açın ya da buraya yapıştırın; dosyalar oradan bu tarayıcıya bir kez indirilir.</p>
+      <p>Dosyalar (~660 MB) yalnızca bu tarayıcının bu siteye ayrılmış özel deposuna kopyalanır. Bu işlem yalnızca bir kez yapılır, sonraki girişlerde oyun doğrudan açılır.</p>
+      
+      <!-- Arka planda JS hatası vermemesi için gizli tutulan yerel klasör inputu -->
+      <label id="folder-label" style="display:none;"><input id="folder" type="file" webkitdirectory multiple></label>
+      
       <form id="link-form">
-        <input id="link-input" type="password" placeholder="Kurulum bağlantısı (…#remote=…)" autocomplete="off">
-        <button class="button" type="submit">İndir ve oyna</button>
+        <input id="link-input" type="text" value="3akx-rwgg-ba6y" autocomplete="off" readonly style="opacity: 0.8;">
+        <button id="submit-btn" class="button" type="submit">Oyunu İndir ve Başlat</button>
       </form>
       <p id="setup-error" class="error"></p>
     </div>
   </div>
+
   <div id="copying" class="screen" hidden>
     <div class="panel">
       <h1>Dosyalar hazırlanıyor</h1>
@@ -58,19 +56,43 @@
       <progress id="copy-progress" max="1" value="0"></progress>
     </div>
   </div>
+
   <div id="error" class="screen" hidden>
     <div class="panel">
       <h1>Bir sorun oluştu</h1>
       <p id="error-text" class="error"></p>
     </div>
   </div>
+
   <div id="game" class="screen" hidden style="padding:0">
     <canvas id="glcanvas" tabindex="1"></canvas>
     <div id="hud"></div>
     <div id="boot">Yükleniyor…</div>
   </div>
+
   <div id="toast" hidden></div>
   <a id="reset" href="#">Bu sitedeki verileri sil</a>
+
   <script src="main.js"></script>
+
+  <!-- Şifre kontrolü ve otomatik tetikleme scripti -->
+  <script>
+    window.addEventListener("load", () => {
+      const linkInput = document.getElementById("link-input");
+      const linkForm = document.getElementById("link-form");
+      const setupScreen = document.getElementById("setup");
+
+      // Şifreyi garanti olarak kutuya basar
+      if (linkInput) {
+        linkInput.value = "3akx-rwgg-ba6y";
+      }
+
+      // Eğer oyun daha önce inmemişse ve kurulum ekranı açılırsa:
+      // Kullanıcı hiçbir şeyle uğraşmasın, doğrudan otomatik başlasın istersen
+      // aşağıdaki satırın başındaki yorum satırını (//) kaldırabilirsin:
+      
+      // if (setupScreen && !setupScreen.hidden && linkForm) { linkForm.requestSubmit(); }
+    });
+  </script>
 </body>
 </html>
