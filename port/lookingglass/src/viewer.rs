@@ -3109,7 +3109,7 @@ pub async fn run(mut assets: Assets, mut options: Options) -> Result<()> {
         let show_details = help || menu;
         if paused && !menu && !inventory_menu && !console_input && !help {
             ui.paused(&if input.using_pad {
-                "A or Start to resume".into()
+                crate::input::pad_text("A or Start to resume")
             } else {
                 format!("{} or click to resume", input.label(&preferences, "P"))
             });

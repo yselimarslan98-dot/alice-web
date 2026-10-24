@@ -342,13 +342,13 @@ pub async fn play(
                 ..Default::default()
             },
         );
-        skip.draw(ui, if input.using_pad { "A" } else { "Enter" });
+        skip.draw(ui, &if input.using_pad { crate::input::pad_text("A") } else { "Enter".into() });
         if !active {
-            ui.paused(if input.using_pad {
+            ui.paused(&crate::input::pad_text(if input.using_pad {
                 "Start to resume film"
             } else {
                 "P to resume film"
-            });
+            }));
         }
         next_frame().await;
     }

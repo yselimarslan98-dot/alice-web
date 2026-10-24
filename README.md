@@ -39,6 +39,7 @@ npm run serve:site                         # http://127.0.0.1:8090/
 ## Kontroller ve seçenekler
 
 - Oyun alanına tıkla: fare kilitlenir (Esc bırakır). WASD + fare, Space zıplama, Shift yürüme, F5/F9 hızlı kayıt/yükleme, Tab bölümler.
+- Xbox ve PlayStation (DualSense/DualShock) kontrolcüleri: bağlayıp bir tuşa basın. Sol çubuk hareket, sağ çubuk bakış; menüler D-pad/çubuk + A/Cross ile gezilir, Start/Options duraklatır. PlayStation kontrolcüsünde ekrandaki tuş adları Cross/Circle/Options olarak gösterilir. Atamalar Settings → Controls'ta değiştirilebilir.
 - `?map=hedge1`, `?load=quick`, `?fast-movement` gibi sorgu parametreleri Looking Glass seçeneklerine çevrilir.
 - `#fps=30` / `#fps=0` (sınırsız) kare sınırını değiştirir (varsayılan 60); `#nohud` tanı satırını gizler.
 - Sağ üstteki "Bu sitedeki verileri sil": kopyalanan oyun dosyalarını ve kayıtları siler.

@@ -281,6 +281,7 @@ function start(source, packs) {
   }, [offscreen]);
   bindInput();
   startAudio();
+  pollGamepads();
 }
 
 function onWorkerMessage(message) {
@@ -360,6 +361,50 @@ function bindInput() {
   window.addEventListener('blur', focusChanged);
   document.addEventListener('visibilitychange', focusChanged);
 }
+
+// ---------------------------------------------------------------- gamepads
+// The game reads pads in XInput's layout (Looking Glass input.rs); browsers expose Xbox and
+// PlayStation pads alike through the Gamepad API's standard mapping. Pads show up after their
+// first button press (a browser privacy rule).
+const PAD_BITS = [
+  [0, 0x1000], [1, 0x2000], [2, 0x4000], [3, 0x8000], // A/Cross B/Circle X/Square Y/Triangle
+  [4, 0x100], [5, 0x200], [8, 0x20], [9, 0x10], // LB/L1 RB/R1 Back/Create Start/Options
+  [10, 0x40], [11, 0x80], [12, 1], [13, 2], [14, 4], [15, 8], // stick clicks, D-pad
+];
+const axis = (v) => Math.max(-32767, Math.min(32767, Math.round((v || 0) * 32767)));
+let lastPads = '';
+
+function readPad(p) {
+  const b = (i) => p.buttons[i] || { pressed: false, value: 0 };
+  let buttons = 0;
+  for (const [i, bit] of PAD_BITS) if (b(i).pressed) buttons |= bit;
+  return {
+    buttons,
+    lt: Math.round(b(6).value * 255),
+    rt: Math.round(b(7).value * 255),
+    // XInput's Y axes point up; the Gamepad API's point down.
+    axes: [axis(p.axes[0]), -axis(p.axes[1]), axis(p.axes[2]), -axis(p.axes[3])],
+    playstation: /054c|playstation|dualsense|dualshock|wireless controller/i.test(p.id),
+  };
+}
+
+function pollGamepads() {
+  const pads = [null, null, null, null];
+  for (const p of navigator.getGamepads?.() || []) {
+    if (p && p.connected && p.index < 4) pads[p.index] = readPad(p);
+  }
+  const state = JSON.stringify(pads);
+  if (state !== lastPads) {
+    lastPads = state;
+    // Sound may still wait for a first click or key; try a pad press too (browsers that do not
+    // count it as user activation simply refuse).
+    if (audio.ctx?.state === 'suspended' && pads.some((p) => p?.buttons)) audio.ctx.resume().catch(() => {});
+    worker.postMessage({ type: 'gamepads', pads });
+  }
+  requestAnimationFrame(pollGamepads);
+}
+
+window.addEventListener('gamepadconnected', (e) => console.log(`Kontrolcü bağlandı: ${e.gamepad.id} (${e.gamepad.mapping || 'standart değil'})`));
 
 // ---------------------------------------------------------------- audio
 // The worker mixes 44.1 kHz stereo in Rust; we keep about LEAD seconds scheduled ahead.

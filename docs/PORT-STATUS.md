@@ -32,6 +32,7 @@ yükleyicisi senkron olduğu için oyun, senkron dosya okumasının mümkün old
 | Hata mesajları sayfada | ✅ |
 | Orijinal hareket hızları (koşma 173, yürüme 51,7 u/s; varsayılan koşma) | ✅ `?fast-movement` eski hızlar |
 | 60 fps kilidi (`#fps=N`, `#fps=0`) | ✅ |
+| Xbox / PS5 kontrolcüsü (Gamepad API → LG'nin XInput katmanı; PS tuş adları) | ✅ (sahte kontrolcüyle test edildi) |
 | Ham fare girdisi (`unadjustedMovement`) | ✅ (gerçek tarayıcıda; headless'ta yok) |
 
 ## Ölçümler (headless Chrome, RTX 3060 Ti)
@@ -57,4 +58,4 @@ Performans iyileştirmeleri (bu dönem):
 4. **Tek sekme:** OPFS senkron tutamakları dosyaları kilitler.
 5. **Upstream:** LG `055b1d1`. Yerel yamalar: `assets.rs` (wasm pk3 köprüsü), `audio.rs` (web
    çıkışı, park etme), `acoustics.rs`, `movement.rs` + `preferences.rs` (hızlar), `save.rs`,
-   `viewer.rs` (yükleme karesi, WebGL2), `main.rs`, yeni `userfs.rs`, mekanik `as u64`.
+   `viewer.rs` (yükleme karesi, WebGL2), `main.rs`, `input.rs` + kontrolcü ipuçları (`hud.rs`, `menu.rs`, `movie.rs`, `chapters.rs`), yeni `userfs.rs`, mekanik `as u64`.

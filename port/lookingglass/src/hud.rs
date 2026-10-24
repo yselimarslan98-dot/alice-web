@@ -278,7 +278,7 @@ impl Hud {
                 &format!(
                     "{} - retry",
                     if input.using_pad {
-                        "A".into()
+                        crate::input::pad_text("A")
                     } else {
                         input.label(prefs, "Enter")
                     }
@@ -288,10 +288,10 @@ impl Hud {
                 crate::ui::INK,
             );
             self.ui.center(
-                if input.using_pad {
-                    "Start - load a game or change options"
+                &if input.using_pad {
+                    crate::input::pad_text("Start - load a game or change options")
                 } else {
-                    "Esc - load a game or change options"
+                    "Esc - load a game or change options".to_owned()
                 },
                 Rect::new(r.x + 20. * text_scale, r.y + 102. * text_scale, r.w - 40. * text_scale, 26. * text_scale),
                 22. * text_scale,
@@ -338,7 +338,7 @@ impl Hud {
         );
         self.ui.center(
             &if input.using_pad {
-                "D-pad: select    A: equip    B: return".into()
+                crate::input::pad_text("D-pad: select    A: equip    B: return")
             } else {
                 format!(
                     "Arrows / click: select    {} / Esc: return",

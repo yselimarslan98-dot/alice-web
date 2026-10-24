@@ -195,6 +195,7 @@ struct RawPad {
 }
 #[repr(C)]
 #[derive(Default)]
+#[cfg_attr(not(windows), allow(dead_code))]
 struct RawState {
     packet: u32,
     pad: RawPad,
@@ -204,6 +205,13 @@ struct RawState {
 extern "system" {
     fn XInputGetState(index: u32, state: *mut RawState) -> u32;
 }
+// Browser build: the page reads the Gamepad API (standard mapping: Xbox, DualSense, DualShock)
+// and the worker fills the same XInput layout.
+#[cfg(target_arch = "wasm32")]
+extern "C" {
+    fn lgweb_pad(index: u32, state: *mut RawPad) -> u32;
+    fn lgweb_pad_style(index: u32) -> u32;
+}
 fn read_pad(index: u32) -> Option<RawPad> {
     #[cfg(windows)]
     {
@@ -211,10 +219,68 @@ fn read_pad(index: u32) -> Option<RawPad> {
         // Fixed C layout, writable state, index checked by XInput; Windows 10+ system API.
         (unsafe { XInputGetState(index, &mut state) } == 0).then_some(state.pad)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_arch = "wasm32")]
+    {
+        let mut pad = RawPad::default();
+        // Fixed C layout; the worker writes exactly size_of::<RawPad>() bytes into it.
+        (unsafe { lgweb_pad(index, &mut pad) } != 0).then_some(pad)
+    }
+    #[cfg(not(any(windows, target_arch = "wasm32")))]
     {
         let _ = index;
         None
+    }
+}
+/// Button names as printed on a PlayStation pad, for prompts and the bindings menu.
+fn pad_label(name: &str, playstation: bool) -> &str {
+    if !playstation {
+        return name;
+    }
+    match name {
+        "A" => "Cross",
+        "B" => "Circle",
+        "X" => "Square",
+        "Y" => "Triangle",
+        "LB" => "L1",
+        "RB" => "R1",
+        "LT" => "L2",
+        "RT" => "R2",
+        "Back" => "Create",
+        "Start" => "Options",
+        "L Stick" => "L3",
+        "R Stick" => "R3",
+        _ => name,
+    }
+}
+/// Whether the active pad is a PlayStation one (set every frame by `Input::update`).
+static PLAYSTATION: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// A pad prompt ("A: begin   B: return") with the active pad's button names.
+pub fn pad_text(text: &str) -> String {
+    let playstation = PLAYSTATION.load(std::sync::atomic::Ordering::Relaxed);
+    if !playstation {
+        return text.to_owned();
+    }
+    text.split(' ')
+        .map(|word| {
+            let core = word.trim_end_matches([':', ',']);
+            format!("{}{}", pad_label(core, true), &word[core.len()..])
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+/// A binding name for display with the active pad's button names.
+pub fn pad_name(name: &str) -> String {
+    pad_label(name, PLAYSTATION.load(std::sync::atomic::Ordering::Relaxed)).to_owned()
+}
+fn playstation_pad(slot: Option<u32>) -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        slot.is_some_and(|i| unsafe { lgweb_pad_style(i) } == 1)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = slot;
+        false
     }
 }
 fn stick(x: i16, y: i16, deadzone: f32) -> Vec2 {
@@ -320,6 +386,7 @@ impl Input {
             self.retry = get_time() + 1.;
         }
         self.disconnected = self.pad.connected && raw.is_none() && self.using_pad;
+        PLAYSTATION.store(playstation_pad(self.slot), std::sync::atomic::Ordering::Relaxed);
         self.pad
             .update(raw, focused, prefs.pad_deadzone, get_frame_time().min(0.1));
         if !focused {
@@ -436,7 +503,7 @@ impl Input {
                 || original.to_owned(),
                 |i| {
                     if self.using_pad && prefs.pad_bindings[i] != "None" {
-                        prefs.pad_bindings[i].clone()
+                        pad_name(&prefs.pad_bindings[i])
                     } else {
                         prefs.bindings[i].clone()
                     }
@@ -448,6 +515,13 @@ impl Input {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn playstation_prompts_use_playstation_button_names() {
+        assert_eq!(pad_label("A", true), "Cross");
+        assert_eq!(pad_label("Start", true), "Options");
+        assert_eq!(pad_label("D Up", true), "D Up");
+        assert_eq!(pad_label("A", false), "A");
+    }
     #[test]
     fn radial_sticks_are_quiet_at_centre_and_preserve_analog_speed() {
         assert_eq!(stick(3000, -4000, 0.24), Vec2::ZERO);

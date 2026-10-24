@@ -1450,9 +1450,9 @@ impl Menu {
                         cell.rect = Rect::new(r.x, r.y, r.w-key_width, r.h);
                         self.draw_lettering(canvas, &cell, &b.text, selected);
                         cell.rect = Rect::new(r.right()-key_width, r.y, key_width, r.h);
-                        self.draw_lettering(canvas, &cell, if self.controls_pad {
-                            &self.draft.pad_bindings[row]
-                        } else {&self.draft.bindings[row]}, selected);
+                        self.draw_lettering(canvas, &cell, &if self.controls_pad {
+                            crate::input::pad_name(&self.draft.pad_bindings[row])
+                        } else {self.draft.bindings[row].clone()}, selected);
                     } else if page != Page::Video {
                         let width = if self.toggle(page, row).is_some() {
                             r.w - 38.
@@ -1506,7 +1506,7 @@ impl Menu {
         if page.settings() {
             self.ui.font.draw(
                 canvas,
-                if self.binding.is_some() {
+                &crate::input::pad_text(if self.binding.is_some() {
                     if self.controls_pad {
                         "Press a button   Start / Esc cancel   Delete clear"
                     } else {
@@ -1516,7 +1516,7 @@ impl Menu {
                     "D-pad / stick: browse   A: select   B: back"
                 } else {
                     "Arrows adjust   Enter select   Esc cancel"
-                },
+                }),
                 Rect::new(80., 442., 478., 24.),
                 19.,
                 WHITE,
@@ -1539,13 +1539,13 @@ impl Menu {
         if page == Page::Main && !buttons.is_empty() {
             self.ui.font.draw(
                 canvas,
-                if self.frontend || self.post_game {
+                &crate::input::pad_text(if self.frontend || self.post_game {
                     "Tab: chapters"
                 } else if self.using_pad {
                     "Tab: chapters   Start / B: back to game"
                 } else {
                     "Tab: chapters   Esc: back to game"
-                },
+                }),
                 Rect::new(285., 451., 345., 25.),
                 18.,
                 WHITE,

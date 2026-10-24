@@ -200,21 +200,22 @@ impl Chapters {
         }
         ui.font.draw(
             canvas,
-            if pad {
+            &crate::input::pad_text(if pad {
                 "D-pad / left stick: browse   A: begin   B: return"
             } else {
                 "Click: select   Double-click: begin   Wheel / arrows: browse"
-            },
+            }),
             Rect::new(30., 402., 580., 21.),
             17.,
             ui::INK,
         );
-        let back_title = format!("{} / {}", labels.back, if pad {"B"} else {"Tab / Esc"});
+        let back_title = format!("{} / {}", labels.back, if pad {crate::input::pad_text("B")} else {"Tab / Esc".into()});
+        let begin_title: String = if pad { crate::input::pad_text("Begin / A") } else { "Begin / Enter".into() };
         for (rect, hit, title) in [
             (
                 BEGIN,
                 Hit::Begin,
-                if pad { "Begin / A" } else { "Begin / Enter" },
+                begin_title.as_str(),
             ),
             (
                 BACK,

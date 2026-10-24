@@ -225,6 +225,9 @@ function installFastGl(env) {
 let pending = null;
 let gameOver = false; // after a fatal error the wasm event handler is gone
 const encoder = new TextEncoder();
+// Latest gamepad state from the page (the Gamepad API is not available in workers).
+let gamepads = [];
+
 const decoder = new TextDecoder();
 const text = (ptr, len) => decoder.decode(new Uint8Array(wasm_memory.buffer, ptr, len).slice());
 
@@ -262,6 +265,18 @@ const lgweb = {
       gameOver = true;
       post({ type: 'fatal', text: `Oyun durdu: ${text(ptr, len)}` });
     };
+    // Gamepads, in XInput's layout (input.rs RawPad: u16 buttons, u8 lt, u8 rt, i16 lx ly rx ry).
+    env.lgweb_pad = (index, dst) => {
+      const pad = gamepads[index];
+      if (!pad) return 0;
+      const view = new DataView(wasm_memory.buffer, dst, 12);
+      view.setUint16(0, pad.buttons, true);
+      view.setUint8(2, pad.lt);
+      view.setUint8(3, pad.rt);
+      pad.axes.forEach((v, i) => view.setInt16(4 + 2 * i, v, true));
+      return 1;
+    };
+    env.lgweb_pad_style = (index) => (gamepads[index]?.playstation ? 1 : 0);
     env.sapp_set_cursor_grab = (grab) => post({ type: 'grab', grab: !!grab });
     env.sapp_set_fullscreen = (on) => post({ type: 'fullscreen', on: !!on });
     env.sapp_set_cursor = (ptr, len) => post({ type: 'cursor', cursor: text(ptr, len) });
@@ -389,6 +404,9 @@ self.onmessage = async (message) => {
       break;
     case 'audio-need':
       fillAudio(m.blocks);
+      break;
+    case 'gamepads':
+      gamepads = m.pads;
       break;
   }
 };
