@@ -1,6 +1,6 @@
 # Builds the browser version and publishes it to GitHub Pages.
 # The site contains only the engine (Looking Glass, MIT) and this page; no game data.
-# Players choose their own Alice (2011) folder in the browser on first visit.
+# Players choose their own Alice (2000) folder in the browser on first visit.
 name: Deploy site
 
 on:

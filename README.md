@@ -1,6 +1,6 @@
 # alice-web
 
-American McGee's Alice (2011) tarayıcıda. Motor, [Looking Glass](https://github.com/looking-glass-project/LookingGlass)
+American McGee's Alice (2000) tarayıcıda. Test edilen veri, 2011'de Madness Returns ile dağıtılan yeniden sürümden. Motor, [Looking Glass](https://github.com/looking-glass-project/LookingGlass)
 Rust motorunun (MIT) WebAssembly derlemesi (`port/lookingglass/`). Oyun bir Web Worker'da,
 OffscreenCanvas + WebGL2 ile çalışır.
 
