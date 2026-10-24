@@ -1,98 +1,151 @@
 <!doctype html>
+
 <html lang="tr">
+
 <head>
+
   <meta charset="utf-8">
+
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>Alice (web)</title>
+
   <style>
+
     :root { --fg: #e6dcc6; --muted: #a89c86; --accent: #c9a25e; --bg: #0b0908; --panel: #17130f; }
+
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+
       font: 16px/1.5 Georgia, 'Times New Roman', serif; }
+
     canvas { width: 100%; height: 100%; display: block; outline: none; }
+
     #hud { position: fixed; left: 6px; bottom: 4px; color: #8f8; font: 12px monospace; pointer-events: none; }
+
     .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+
     .screen[hidden], #boot[hidden] { display: none; }
+
     .panel { max-width: 560px; background: var(--panel); border: 1px solid #3a3027; border-radius: 10px; padding: 28px 32px; }
+
     h1 { margin: 0 0 12px; font-size: 26px; font-weight: normal; color: var(--accent); }
+
     p { margin: 0 0 12px; color: var(--muted); }
+
     .button { display: inline-block; margin-top: 8px; padding: 10px 18px; border-radius: 6px; cursor: pointer;
+
       background: var(--accent); color: #1b140c; font-weight: bold; }
+
     label.button input { display: none; }
-    button.button { border: 0; font: inherit; font-weight: bold; width: 100%; }
+
+    button.button { border: 0; font: inherit; font-weight: bold; }
+
     hr { border: 0; border-top: 1px solid #3a3027; margin: 20px 0 16px; }
-    #link-form { display: flex; gap: 8px; flex-direction: column; }
-    #link-input { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 9px 10px; border-radius: 6px; border: 1px solid #3a3027;
+
+    #link-form { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    #link-input { flex: 1; min-width: 200px; margin-top: 8px; padding: 9px 10px; border-radius: 6px; border: 1px solid #3a3027;
+
       background: var(--bg); color: var(--fg); font: 14px monospace; }
+
     progress { width: 100%; height: 14px; }
+
     .error { color: #e08a7a; }
+
     #boot { position: fixed; right: 48px; bottom: 40px; font-size: 28px; pointer-events: none; }
+
     #toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 3; padding: 8px 16px;
+
       border-radius: 6px; background: rgba(23, 19, 15, 0.92); border: 1px solid #3a3027; color: var(--fg); font-size: 15px; }
+
     #toast[hidden] { display: none; }
+
     #reset { position: fixed; top: 8px; right: 12px; color: var(--muted); font-size: 12px; z-index: 2; opacity: 0.5; }
+
   </style>
+
 </head>
+
 <body>
+
   <div id="setup" class="screen" hidden>
+
     <div class="panel">
+
       <h1>American McGee's Alice</h1>
-      <p>Dosyalar (~660 MB) yalnızca bu tarayıcının bu siteye ayrılmış özel deposuna kopyalanır. Bu işlem yalnızca bir kez yapılır, sonraki girişlerde oyun doğrudan açılır.</p>
-      
-      <!-- Arka planda JS hatası vermemesi için gizli tutulan yerel klasör inputu -->
-      <label id="folder-label" style="display:none;"><input id="folder" type="file" webkitdirectory multiple></label>
-      
+
+      <p>Oynamak için kendi Alice (2000) kurulumunuzdaki dosyalar gerekir. Bilgisayarınızdaki
+
+        <b>Alice1\bin\base</b> klasörünü (ya da Alice klasörünün tamamını) seçin.</p>
+
+      <p>Dosyalar (~660 MB) yalnızca bu tarayıcının bu siteye ayrılmış özel deposuna kopyalanır; hiçbir
+
+        sunucuya yüklenmez. Bu bir kez yapılır, sonraki girişlerde oyun doğrudan açılır.</p>
+
+      <label class="button">Alice klasörünü seç<input id="folder" type="file" webkitdirectory multiple></label>
+
+      <hr>
+
+      <p id="link-text">Oyun dosyalarını kendi özel bulut deponuza (Cloudflare R2, Backblaze B2, S3) koyduysanız kişisel
+
+        kurulum bağlantınızı açın ya da buraya yapıştırın; dosyalar oradan bu tarayıcıya bir kez indirilir. Yoksa da şifre 3akx-rwgg-ba6y. bununla da giriş yapabilirsiniz :) </p>
+
       <form id="link-form">
-        <input id="link-input" type="text" value="3akx-rwgg-ba6y" autocomplete="off" readonly style="opacity: 0.8;">
-        <button id="submit-btn" class="button" type="submit">Oyunu İndir ve Başlat</button>
+
+        <input id="link-input" type="password" placeholder="Kurulum bağlantısı (…#remote=…)" autocomplete="off">
+
+        <button class="button" type="submit">İndir ve oyna</button>
+
       </form>
+
       <p id="setup-error" class="error"></p>
+
     </div>
+
   </div>
 
   <div id="copying" class="screen" hidden>
+
     <div class="panel">
+
       <h1>Dosyalar hazırlanıyor</h1>
+
       <p id="copy-text">Başlıyor…</p>
+
       <progress id="copy-progress" max="1" value="0"></progress>
+
     </div>
+
   </div>
 
   <div id="error" class="screen" hidden>
+
     <div class="panel">
+
       <h1>Bir sorun oluştu</h1>
+
       <p id="error-text" class="error"></p>
+
     </div>
+
   </div>
 
   <div id="game" class="screen" hidden style="padding:0">
+
     <canvas id="glcanvas" tabindex="1"></canvas>
+
     <div id="hud"></div>
+
     <div id="boot">Yükleniyor…</div>
+
   </div>
 
   <div id="toast" hidden></div>
+
   <a id="reset" href="#">Bu sitedeki verileri sil</a>
 
   <script src="main.js"></script>
 
-  <!-- Şifre kontrolü ve otomatik tetikleme scripti -->
-  <script>
-    window.addEventListener("load", () => {
-      const linkInput = document.getElementById("link-input");
-      const linkForm = document.getElementById("link-form");
-      const setupScreen = document.getElementById("setup");
-
-      // Şifreyi garanti olarak kutuya basar
-      if (linkInput) {
-        linkInput.value = "3akx-rwgg-ba6y";
-      }
-
-      // Eğer oyun daha önce inmemişse ve kurulum ekranı açılırsa:
-      // Kullanıcı hiçbir şeyle uğraşmasın, doğrudan otomatik başlasın istersen
-      // aşağıdaki satırın başındaki yorum satırını (//) kaldırabilirsin:
-      
-      // if (setupScreen && !setupScreen.hidden && linkForm) { linkForm.requestSubmit(); }
-    });
-  </script>
 </body>
+
 </html>
