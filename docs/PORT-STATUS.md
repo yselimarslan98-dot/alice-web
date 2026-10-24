@@ -28,6 +28,7 @@ yükleyicisi senkron olduğu için oyun, senkron dosya okumasının mümkün old
 | Menü, açılış sahnesi, oynanış, seviye geçişleri | ✅ (önceki dayanıklılık testinde 39/39 ziyaret) |
 | Ses ve müzik | ✅ |
 | Hızlı kayıt / yükleme, tercihler | ✅ OPFS'te |
+| Kayıtları dosyaya dışa / içe aktarma (Ayarlar paneli, kurulum ekranı; silmeden önce teklif edilir) | ✅ |
 | Eski sunucu kayıtlarının (`userdata/`) aktarımı | ✅ yerel modda bir kez |
 | Hata mesajları sayfada | ✅ |
 | Orijinal hareket hızları (koşma 173, yürüme 51,7 u/s; varsayılan koşma) | ✅ `?fast-movement` eski hızlar |

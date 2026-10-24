@@ -52,6 +52,18 @@
 
       background: var(--bg); color: var(--fg); font: 14px Georgia, serif; }
 
+    .save-buttons { display: flex; gap: 8px; margin-top: 4px; }
+
+    .small-button { display: inline-block; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid #3a3027;
+
+      background: var(--bg); color: var(--fg); font: 14px Georgia, serif; }
+
+    .small-button:hover { border-color: var(--accent); }
+
+    .small-button input { display: none; }
+
+    #settings .save-buttons .small-button { display: inline-block; margin: 0; color: var(--fg); }
+
     #settings small { display: block; margin-top: 12px; color: var(--muted); font-size: 12px; }
 
     .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -129,6 +141,12 @@
         <button class="button" type="submit">İndir ve oyna</button>
 
       </form>
+
+      <hr>
+
+      <p>Daha önce dışa aktardığınız bir kayıt dosyanız (.json) varsa buradan geri yükleyebilirsiniz.</p>
+
+      <label class="small-button">Kayıtları içe aktar<input class="save-import" type="file" accept=".json,application/json"></label>
 
       <p id="setup-error" class="error"></p>
 
@@ -230,7 +248,19 @@
 
       </label>
 
-      <small>Ayarlar bu tarayıcıda saklanır. Oyundayken fare kilitliyse önce Esc'ye basın.</small>
+      <label>Kayıtlar</label>
+
+      <div class="save-buttons">
+
+        <button class="small-button save-export" type="button">Dışa aktar</button>
+
+        <label class="small-button">İçe aktar<input class="save-import" type="file" accept=".json,application/json"></label>
+
+      </div>
+
+      <small>Kayıtlar ve ayarlar yalnızca bu tarayıcıda saklanır; tarayıcıda site verilerini temizlemek kayıtları da
+
+        siler. Ara sıra dışa aktarıp dosyayı saklayın. Oyundayken fare kilitliyse önce Esc'ye basın.</small>
 
     </div>
 

@@ -305,10 +305,102 @@ async function setup() {
 $('reset').addEventListener('click', async (e) => {
   e.preventDefault();
   if (!confirm('Bu sitede saklanan oyun dosyaları ve kayıtlar silinsin mi?')) return;
+  if (await hasSaves() && confirm('Silmeden önce kayıtlar bir dosyaya dışa aktarılsın mı? (Önerilir)')) {
+    await exportSaves();
+    await new Promise((r) => setTimeout(r, 1500)); // let the download start before the reload
+  }
   worker?.terminate();
   await clearBrowserData();
   location.reload();
 });
+
+// ---------------------------------------------------------------- save export / import
+// Saves and preferences live only in this browser (OPFS userdata/), so clearing site data loses
+// them. Export packs every file into one JSON file the player keeps; import writes them back.
+const SAVE_FORMAT = 'alice-web-saves';
+
+const toBase64 = (bytes) => {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+};
+const fromBase64 = (text) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+const userDataDir = async () => (await siteRoot()).getDirectoryHandle('userdata', { create: true });
+
+async function readSaves() {
+  const files = {};
+  const walk = async (dir, prefix) => {
+    for await (const [name, entry] of dir.entries()) {
+      if (entry.kind === 'directory') await walk(entry, `${prefix}${name}/`);
+      else files[prefix + name] = toBase64(new Uint8Array(await (await entry.getFile()).arrayBuffer()));
+    }
+  };
+  await walk(await userDataDir(), '');
+  return files;
+}
+
+const hasSaves = async () => Object.keys(await readSaves()).length > 0;
+
+async function exportSaves() {
+  const files = await readSaves();
+  if (!Object.keys(files).length) return toast('Henüz dışa aktarılacak kayıt yok.');
+  const json = JSON.stringify({ format: SAVE_FORMAT, version: 1, exported: new Date().toISOString(), files });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  link.download = `alice-kayitlar-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+  toast(`${Object.keys(files).length} kayıt dosyası dışa aktarıldı.`);
+}
+
+async function importSaves(file) {
+  let data = null;
+  try {
+    data = JSON.parse(await file.text());
+  } catch {}
+  if (data?.format !== SAVE_FORMAT || !data.files || typeof data.files !== 'object') {
+    return toast('Bu dosya bir Alice kayıt dosyası değil.');
+  }
+  const paths = Object.keys(data.files).filter((p) => p.split('/').every((part) => part && part !== '.' && part !== '..'));
+  if (!confirm(`${paths.length} kayıt dosyası içe aktarılacak; aynı adlı kayıtların üzerine yazılır. Devam edilsin mi?`)) return;
+  // The game keeps saves in memory and writes them back; stop it so it cannot overwrite the import.
+  worker?.terminate();
+  try {
+    const root = await userDataDir();
+    for (const path of paths) {
+      const parts = path.split('/');
+      let dir = root;
+      for (const part of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(part, { create: true });
+      const writable = await (await dir.getFileHandle(parts[parts.length - 1], { create: true })).createWritable();
+      await writable.write(fromBase64(data.files[path]));
+      await writable.close();
+    }
+  } catch (err) {
+    return fatal(`Kayıtlar içe aktarılamadı: ${err}`);
+  }
+  try {
+    sessionStorage.setItem('alice-web:imported', String(paths.length));
+  } catch {}
+  location.reload();
+}
+
+try {
+  const imported = sessionStorage.getItem('alice-web:imported');
+  if (imported) {
+    sessionStorage.removeItem('alice-web:imported');
+    setTimeout(() => toast(`${imported} kayıt dosyası içe aktarıldı.`)); // after the whole script has run
+  }
+} catch {}
+
+for (const button of document.querySelectorAll('.save-export')) {
+  button.addEventListener('click', () => exportSaves().catch((err) => toast(`Dışa aktarılamadı: ${err}`)));
+}
+for (const input of document.querySelectorAll('.save-import')) {
+  input.addEventListener('change', () => {
+    if (input.files[0]) importSaves(input.files[0]);
+    input.value = '';
+  });
+}
 
 // ---------------------------------------------------------------- game worker
 let worker = null;
