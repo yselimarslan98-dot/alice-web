@@ -110,6 +110,9 @@ pub struct Ant {
     detour: crate::combat::navigation::Detour,
     #[serde(default)]
     hunt: crate::combat::alert::Hunt,
+    /// CHARGE in `ai/c_armyant.st`: the walk_fast gait while far from a visible enemy.
+    #[serde(default)]
+    fast: bool,
     #[serde(skip)]
     pub notarget: bool,
     #[serde(default)]
@@ -143,6 +146,7 @@ impl Ant {
             memory: 0.,
             detour: Default::default(),
             hunt: Default::default(),
+            fast: false,
             notarget: false,
             id,
             corporal,
@@ -202,6 +206,7 @@ impl Ant {
     pub fn clip(&self) -> &'static str {
         match self.phase {
             Phase::Idle => "idle",
+            Phase::Chase if self.fast && !self.corporal => "walk_fast",
             Phase::Chase => "walk_medium",
             Phase::Retreat => "retreat_1",
             Phase::Melee => "attack_1",
@@ -269,9 +274,10 @@ impl Ant {
             ],
         })[self.variant.min(2)]
     }
+    /// Musket (40%) or grenade (30%) chance per walk cycle, from `ai/c_armyant*.st`.
     fn chance(&mut self) -> bool {
         self.random = self.random.wrapping_mul(1664525).wrapping_add(1013904223);
-        self.random % 10 < 4
+        self.random % 10 < if self.corporal { 3 } else { 4 }
     }
     pub fn advance(
         &mut self,
@@ -528,6 +534,11 @@ impl Ant {
                 } else if visible
                     && facing
                     && (self.phase == Phase::Idle || self.time >= duration)
+                    && if self.corporal {
+                        (150. ..640.).contains(&distance)
+                    } else {
+                        distance > 120.
+                    }
                     && self.chance()
                 {
                     self.set(if self.corporal {
@@ -536,18 +547,19 @@ impl Ant {
                         Phase::Ready
                     });
                 } else {
+                    if visible && distance > 250. * self.scale {
+                        self.fast = true;
+                    } else if self.time >= duration && (!visible || distance < 230. * self.scale) {
+                        self.fast = false;
+                    }
                     if self.phase == Phase::Idle || self.time >= duration {
                         self.set(Phase::Chase);
                     }
                     if delta.truncate().length() > 24. {
-                        self.walk(world, delta, data.speed(self.model(), "walk_medium") * dt);
+                        self.walk(world, delta, data.speed(self.model(), self.clip()) * dt);
+
                     } else if !visible {
                         self.memory = 0.;
-                        if self.hunt.active() {
-                            let mut p = self.last_seen.unwrap_or(self.feet);
-                            self.hunt.wander(self.feet, &mut p);
-                            self.last_seen = Some(p);
-                        }
                     }
                 }
             }

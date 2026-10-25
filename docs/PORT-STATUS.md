@@ -71,14 +71,23 @@ Performans iyileştirmeleri (bu dönem):
 ## Düşman yapay zekası (yerel geliştirme)
 
 LG'nin düşman kodu upstream ile birebir aynıydı; "aptal" davranış port hatası değil, LG'nin
-basitleştirilmiş yaklaşımı. Yerel iyileştirmeler (yeni `combat/alert.rs`):
+basitleştirilmiş yaklaşımı. Orijinal durum makineleri oyun verisinde duruyor (`pak0.pk3` → `ai/*.st`,
+58 dosya); LG bunları okumuyor. Yerel iyileştirmeler bu dosyalardaki değerlere göre (yeni `combat/alert.rs`):
 
-- **Yol bulma:** Kart askerleri, satranç taşları, saat askerleri ve ateş imp'leri artık karıncaların
-  kullandığı `combat::navigation::Detour` ile engellerin etrafından dolaşıyor (eskiden düz çizgi + 5 açı).
-- **Arama:** Görüş hafızası bitince 8 sn boyunca son görülen noktanın çevresini dolaşarak arıyorlar
-  (kart askeri, satranç, saat askeri, ateş imp'i, karınca, karınca aslanı).
-- **Haberleşme:** Alice'i ilk gören ya da boştayken vurulan düşman bir uyarı yayıyor; 360 birim içinde
-  veya 900 birime kadar açık görüşteki boştaki düşmanlar uyanıp aynı noktaya koşuyor (gizli karınca
-  aslanları da çıkıyor). Uyarılar 1,5 sn yaşar, kaydedilmez, harita değişince temizlenir.
-- **Kupa askeri:** Uzaktan saldırı (charge/slam) yalnızca 650 birim içinde ve %50 olasılıkla; uzaktaysa önce yaklaşıyor.
+- **Takip (`HAVE_ENEMY` + `GetCloseToEnemy`):** Alice'i gören düşman 15 sn boyunca (`alert::LEASH`, her
+  görüşte yenilenir) görmese de onun gerçek konumuna yürüyor; kart askeri, satranç, saat askeri, ateş imp'i,
+  karınca, karınca aslanı.
+- **Yol bulma:** Kart askerleri, satranç taşları, saat askerleri ve ateş imp'leri karıncaların kullandığı
+  `combat::navigation::Detour` ile engellerin etrafından dolaşıyor (eskiden düz çizgi + 5 açı).
+- **Haberleşme (`NOISE_HEARD`):** Alice'i ilk gören ya da boştayken vurulan düşman bir uyarı yayıyor; 360 birim
+  içinde veya 900 birime kadar açık görüşteki boştaki düşmanlar uyanıyor (gizli karınca aslanları da çıkıyor).
+  Uyarılar 1,5 sn yaşar, kaydedilmez, harita değişince temizlenir.
+- **Saldırı sıklığı (`ANIM_DONE`):** LG her 0,7 sn'de zar atıyordu; artık yürüme/koşma döngüsü başına bir kez,
+  orijinal olasılık ve menzillerle (`cards::Kind::tactics`): maça yürürken %29,2 (>150), koşarken %72,1;
+  kupa yürürken %40, koşarken en az 2 sn sonra %30, yakın dövüş 100/120; boştayken ilk atış maça %40, kupa %66,6;
+  yol yoksa (`HOLD_POSITION`) durup %75/%50. Saat askeri: döngü başına %60 (walk_slow) / %33 (walk_norm).
+  Karınca çavuşu: %30 ve 150–640 birim.
+- **Hızlı yürüyüş:** Satranç taşları uzaktayken `walk_2` (at/fil 400, kale 500), karıncalar görünür ve 250'den
+  uzaktayken `walk_fast` (230 altında döngü sonunda bırakır).
+- Ateş imp'i, karınca aslanı, fil ışını ve kale hücumu zaten orijinale yakındı; dokunulmadı.
 - Kayıt uyumu: yeni alanlar `#[serde(default)]`; eski kayıtlar yüklenir.

@@ -179,6 +179,9 @@ pub struct Piece {
     detour: crate::combat::navigation::Detour,
     #[serde(default)]
     hunt: crate::combat::alert::Hunt,
+    /// APPROACH_FAST in `ai/c_chess_*.st`: the quicker walk_2 gait when far from the enemy.
+    #[serde(default)]
+    fast: bool,
 }
 impl Piece {
     pub fn new(kind: Kind, feet: Vec3, yaw: f32, scale: f32, seed: usize) -> Self {
@@ -209,6 +212,7 @@ impl Piece {
             random: seed as u32,
             detour: Default::default(),
             hunt: Default::default(),
+            fast: false,
         }
     }
     pub fn target(&self, id: usize) -> Target {
@@ -238,6 +242,8 @@ impl Piece {
             Phase::Chase => {
                 if self.kind == Kind::Pawn {
                     "walk"
+                } else if self.fast {
+                    "walk_2"
                 } else {
                     "walk_1"
                 }
@@ -595,6 +601,12 @@ impl Piece {
                     if self.phase == Phase::Idle {
                         self.set(Phase::Chase);
                     }
+                    let far = match self.kind {
+                        Kind::Pawn => f32::INFINITY,
+                        Kind::Rook => 500.,
+                        _ => 400.,
+                    } * self.scale;
+                    self.fast = toward.truncate().length() > far;
                     if toward.truncate().length() > 24. {
                         self.walk(
                             world,
@@ -604,9 +616,6 @@ impl Piece {
                         );
                     } else if !visible {
                         self.memory = 0.;
-                        if self.hunt.active() {
-                            self.hunt.wander(self.feet, &mut self.last_seen);
-                        }
                     }
                     // Loop the rendered clip, but retain the short attack decision timer.
                     self.time = self.time.min(10.);
@@ -665,6 +674,8 @@ impl Piece {
                 && self.last_seen.is_finite()
                 && (0. ..=3.).contains(&self.memory)
                 && self.hunt.valid()
+                && (!self.fast || self.kind != Kind::Pawn)
+
                 && self.detour.valid()
 
                 && (0. ..=2.).contains(&self.block_cooldown)

@@ -63,20 +63,21 @@ pub fn clear() {
     ALERTS.with(|a| a.borrow_mut().clear());
 }
 
-/// How long an enemy keeps hunting around Alice's last known position after losing her.
-pub const SEARCH: f32 = 8.;
+/// How long an enemy keeps its enemy once it last saw her. Like the original actors
+/// (`HAVE_ENEMY` + `GetCloseToEnemy` in `ai/*.st`), a hunting enemy heads for Alice's actual
+/// position, not merely where it last saw her.
+pub const LEASH: f32 = 15.;
 
 /// Pursuit bookkeeping shared by ground enemies, layered over each one's own sight memory:
-/// a fresh sighting or blow raises an alert, idle enemies answer nearby alerts, and once
-/// memory runs out the enemy keeps searching (wandering around the last sighting) for a while.
+/// a fresh sighting or blow raises an alert, idle enemies answer nearby alerts, and while the
+/// leash lasts the enemy keeps tracking its target out of sight.
 #[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Hunt {
     pub search: f32,
-    wander: u32,
 }
 impl Hunt {
     pub fn valid(&self) -> bool {
-        (0. ..=SEARCH).contains(&self.search)
+        (0. ..=LEASH).contains(&self.search)
     }
     /// Call before the enemy's own memory update for this step. `full` is its memory span.
     #[allow(clippy::too_many_arguments)]
@@ -101,38 +102,34 @@ impl Hunt {
             if !hunting && *memory == 0. {
                 raise(ear, aim);
             }
-            self.search = SEARCH;
+            self.search = LEASH;
         } else if *memory > 0. && !hunting {
             // Struck from idle without a sighting: call for help toward the attacker.
             raise(ear, *last_seen);
-            self.search = SEARCH;
+            self.search = LEASH;
         } else if !hunting {
             if let Some(p) = heard(world, ear) {
                 *last_seen = p;
                 *memory = full;
-                self.search = SEARCH;
+                self.search = LEASH;
             }
-        } else if *memory == 0. {
+        } else {
             self.search = (self.search - dt).max(0.);
+            if self.search > 0. {
+                *last_seen = aim;
+                *memory = full;
+            } else {
+                *memory = 0.;
+            }
         }
     }
     pub fn active(&self) -> bool {
         self.search > 0.
     }
-    /// Pick the next point to check around the current position.
-    pub fn wander(&mut self, feet: Vec3, last_seen: &mut Vec3) {
-        if self.wander == 0 {
-            self.wander = (feet.x.to_bits() ^ feet.y.to_bits().rotate_left(16)) | 1;
-        }
-        self.wander = self.wander.wrapping_mul(1664525).wrapping_add(1013904223);
-        let a = (self.wander >> 8) as f32 / (1u32 << 24) as f32 * std::f32::consts::TAU;
-        *last_seen = vec3(feet.x + a.cos() * 240., feet.y + a.sin() * 240., last_seen.z);
-    }
     pub fn clear(&mut self) {
         self.search = 0.;
     }
 }
-
 
 #[cfg(test)]
 mod tests {

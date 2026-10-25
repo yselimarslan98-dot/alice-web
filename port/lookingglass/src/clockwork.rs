@@ -526,6 +526,8 @@ impl Automaton {
                     && distance > 225. * self.scale
                     && self.cooldown == 0.
                     && self.time >= duration
+                    // ai/c_clockwork.st: once per walk cycle, 60% (walk_slow) or 33% (walk_norm).
+                    && self.random() % 1000 < if self.phase == Phase::Fast { 333 } else { 600 }
                 {
                     self.repeat = false;
                     let steam = distance < 325. * self.scale && self.random() % 100 < 75;
@@ -551,11 +553,11 @@ impl Automaton {
                         self.walk(world, toward, data.speed(MODEL, self.clip()) * STEP);
                     } else if !visible {
                         self.memory = 0.;
-                        if self.hunt.active() {
-                            self.hunt.wander(self.feet, &mut self.last_seen);
-                        }
                     }
-                    self.time = self.time.min(10.);
+                    if self.time >= duration {
+                        self.time %= duration.max(STEP);
+                    }
+
                 } else {
                     self.time = self.time.min(10.);
                 }

@@ -425,9 +425,6 @@ impl Imp {
                         );
                     } else if !visible {
                         self.memory = 0.;
-                        if self.hunt.active() {
-                            self.hunt.wander(self.feet, &mut self.last_seen);
-                        }
                     }
                     if self.time >= duration {
                         self.time %= duration;

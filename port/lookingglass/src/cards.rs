@@ -33,6 +33,34 @@ impl Kind {
             Self::Spade => "cardguard_spade",
         }
     }
+    pub fn tactics(self) -> Tactics {
+        match self {
+            Self::Heart => Tactics {
+                idle_fire: 0.666,
+                melee: 100.,
+                melee_run: 120.,
+                charge: 250.,
+                approach: 200.,
+                walk_fire: 0.4,
+                walk_fire_min: 0.,
+                run_fire: 0.3,
+                run_wait: 2.,
+                hold_fire: 0.5,
+            },
+            Self::Spade => Tactics {
+                idle_fire: 0.4,
+                melee: 120.,
+                melee_run: 120.,
+                charge: 220.,
+                approach: 190.,
+                walk_fire: 0.292,
+                walk_fire_min: 150.,
+                run_fire: 0.721,
+                run_wait: 0.,
+                hold_fire: 0.75,
+            },
+        }
+    }
     pub fn projectile(self) -> &'static str {
         match self {
             Self::Heart => "prj_heart",
@@ -156,9 +184,31 @@ pub struct Guard {
     detour: combat::navigation::Detour,
     #[serde(default)]
     hunt: combat::alert::Hunt,
+    /// Walking toward the target made no progress last step (original NO_PATH).
+    #[serde(skip)]
+    held: bool,
 }
-/// Heart guards only charge or slam from inside this range; farther away they close in first.
-const HEART_RANGED: f32 = 650.;
+/// Decision thresholds from the original state machines (`ai/cardguard_heart.st`,
+/// `ai/cardguard_spade.st`). Distances in world units, chances in 0..1.
+pub struct Tactics {
+    /// IDLE with an enemy: chance to open fire at once instead of approaching.
+    idle_fire: f32,
+    /// APPROACH / CHARGE melee range.
+    melee: f32,
+    melee_run: f32,
+    /// APPROACH switches to CHARGE (run) beyond this range.
+    charge: f32,
+    /// CHARGE drops back to APPROACH inside this range at the end of a run cycle.
+    approach: f32,
+    /// APPROACH: ranged chance per walk cycle, beyond `walk_fire_min`.
+    walk_fire: f32,
+    walk_fire_min: f32,
+    /// CHARGE: ranged chance per run cycle after running `run_wait` seconds.
+    run_fire: f32,
+    run_wait: f32,
+    /// HOLD_POSITION (no path): ranged chance per cycle.
+    hold_fire: f32,
+}
 impl Guard {
     pub fn new(kind: Kind, feet: Vec3, yaw: f32, scale: f32, seed: usize) -> Self {
         Self {
@@ -190,6 +240,7 @@ impl Guard {
             serial: 0,
             detour: Default::default(),
             hunt: Default::default(),
+            held: false,
         }
     }
     pub fn target(&self, id: usize) -> Target {
@@ -226,7 +277,21 @@ impl Guard {
             self.set(Phase::Chase);
         }
     }
+    fn roll(&mut self) -> f32 {
+        (self.random() % 1000) as f32 / 1000.
+    }
+    fn ranged(&mut self, out: &mut Feedback) {
+        let phase = if self.kind == Kind::Spade {
+            Phase::Fire
+        } else if self.random() % 2 == 0 {
+            Phase::Charge
+        } else {
+            Phase::Slam
+        };
+        self.enter(phase, out);
+    }
     pub fn set(&mut self, phase: Phase) {
+
         self.phase = phase;
         self.time = 0.;
         self.contacts = 0;
@@ -580,8 +645,16 @@ impl Guard {
         let duration = rig.duration(self.kind.model(), self.clip());
         match self.phase {
             Phase::Idle => {
-                // Also wake when struck or called by a nearby guard.
-                if visible || (self.memory > 0. && !notarget) {
+                // ai/cardguard_*.st IDLE: with an enemy, open fire at once or close in;
+                // a blow or a nearby alert (NOISE_HEARD) plays the alert first.
+                if visible {
+                    self.variant = self.random() % 12;
+                    if facing > 0. && self.roll() < self.kind.tactics().idle_fire {
+                        self.ranged(out);
+                    } else {
+                        self.set(Phase::Chase);
+                    }
+                } else if self.memory > 0. && !notarget {
                     self.variant = self.random() % 12;
                     self.enter(Phase::Alert, out);
                 }
@@ -598,50 +671,59 @@ impl Guard {
                     self.set(Phase::Idle);
                     return;
                 }
-                // Lost her: check around the last sighting until the search runs out.
-                if !visible && movement.truncate().length() <= 50. && self.phase != Phase::Flee {
-                    self.hunt.wander(self.feet, &mut self.last_seen);
-                }
-                if visible && facing > 0.65 && self.cooldown == 0. && self.phase != Phase::Flee {
+                let t = self.kind.tactics();
+                // Decisions gated on ANIM_DONE are taken once per locomotion cycle.
+                let cycle = duration > 0.
+                    && (self.time / duration).floor() > ((self.time - STEP) / duration).floor();
+                let melee = if self.phase == Phase::Run { t.melee_run } else { t.melee };
+                if visible
+                    && facing > 0.65
+                    && self.cooldown == 0.
+                    && self.phase != Phase::Flee
+                    && distance < melee * self.scale
+                {
                     self.variant = self.random() % 12;
-                    if distance < 120. * self.scale {
-                        self.enter(
-                            if self.kind == Kind::Heart && self.variant % 5 == 4 {
-                                Phase::ComboStart
-                            } else {
-                                Phase::Melee
-                            },
-                            out,
-                        );
-                        return;
-                    } else if distance < self.vision
-                        && (self.kind == Kind::Spade || distance < HEART_RANGED * self.scale)
-                        && self.random() % 100 < if self.kind == Kind::Heart { 50 } else { 40 }
-                    {
-                        let phase = if self.kind == Kind::Spade {
-                            Phase::Fire
-                        } else if self.random() % 2 == 0 {
-                            Phase::Charge
+                    self.enter(
+                        if self.kind == Kind::Heart && self.variant % 5 == 4 {
+                            Phase::ComboStart
                         } else {
-                            Phase::Slam
-                        };
-                        self.enter(phase, out);
+                            Phase::Melee
+                        },
+                        out,
+                    );
+                    return;
+                }
+                if self.kind == Kind::Spade && visible && self.health < 6. && distance < 400. {
+                    if self.phase != Phase::Flee {
+                        self.set(Phase::Flee);
+                    }
+                } else if self.phase == Phase::Flee {
+                    self.set(Phase::Chase);
+                } else if cycle && visible && facing > 0.65 && self.cooldown == 0. {
+                    let roll = self.roll();
+                    let fire = if self.held {
+                        // HOLD_POSITION: no way through, so stand and shoot.
+                        distance > 200. * self.scale && roll < t.hold_fire
+                    } else if self.phase == Phase::Run {
+                        distance >= t.approach * self.scale
+                            && self.time >= t.run_wait
+                            && roll < t.run_fire
+                    } else {
+                        distance > t.walk_fire_min * self.scale && roll < t.walk_fire
+                    };
+                    if fire {
+                        self.ranged(out);
                         return;
                     }
-                    self.cooldown = 0.7;
                 }
-                let phase = if self.kind == Kind::Spade && self.health < 6. && distance < 400. {
-                    Phase::Flee
-                } else if distance > 250. {
-                    Phase::Run
-                } else {
-                    Phase::Chase
-                };
-                if self.phase != phase {
-                    self.set(phase);
+                if self.phase == Phase::Chase && visible && distance > t.charge * self.scale {
+                    self.set(Phase::Run);
+                } else if self.phase == Phase::Run && cycle && distance < t.approach * self.scale {
+                    self.set(Phase::Chase);
                 }
+                let before = self.feet;
                 if movement.truncate().length() > 50. && self.phase != Phase::Flee {
-                    // Route around walls and props toward the last sighting.
+                    // GetCloseToEnemy: route around walls and props.
                     let stride = rig.speed(self.kind.model(), self.clip()) * STEP * self.scale;
                     self.feet = self.detour.walk(
                         world,
@@ -667,6 +749,8 @@ impl Guard {
                         }
                     }
                 }
+                self.held = movement.truncate().length() > 50.
+                    && before.truncate().distance_squared(self.feet.truncate()) < 0.0001;
             }
             Phase::Melee | Phase::Combo => {
                 let events: &[(f32, f32)] = match self.clip() {

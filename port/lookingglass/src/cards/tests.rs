@@ -286,3 +286,28 @@ fn ordered_guard_routes_around_a_wall_and_idle_guards_answer_alerts() {
     assert_eq!(idle.phase, Phase::Alert);
     combat::alert::clear();
 }
+#[test]
+fn a_hunting_guard_follows_alice_out_of_sight_until_the_leash_runs_out() {
+    combat::alert::clear();
+    let world = World::fixture(&[
+        (vec3(-2000., -2000., -30.), vec3(2000., 2000., 0.)),
+        (vec3(-300., 150., 0.), vec3(400., 180., 300.)),
+    ]);
+    let mut g = guard(Kind::Spade);
+    g.yaw = std::f32::consts::FRAC_PI_2;
+    // Seen in the open, then Alice slips behind the wall.
+    tick(&mut g, &world, vec3(0., 100., 60.), 1);
+    assert_ne!(g.phase, Phase::Idle);
+    let hidden = vec3(0., 500., 60.);
+    tick(&mut g, &world, hidden, 1800);
+    assert!(g.feet.y > 200., "never rounded the wall: {:?}", g.feet);
+    // Out of reach for good: the guard eventually gives up.
+    let far = vec3(1900., -1900., 60.);
+    let sealed = World::fixture(&[
+        (vec3(-2000., -2000., -30.), vec3(2000., 2000., 0.)),
+        (vec3(-2000., -2000., 0.), vec3(2000., -1000., 300.)),
+    ]);
+    tick(&mut g, &sealed, far, 120 * 40);
+    assert_eq!(g.phase, Phase::Idle);
+    combat::alert::clear();
+}

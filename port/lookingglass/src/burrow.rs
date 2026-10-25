@@ -441,10 +441,6 @@ impl Insect {
                     self.set(Phase::Idle);
                     return;
                 }
-                // Lost her: check around the last sighting until the search runs out.
-                if !visible && (self.last_seen - from).truncate().length() <= 60. {
-                    self.hunt.wander(self.feet, &mut self.last_seen);
-                }
                 if visible
 
                     && distance < 100. * self.scale
