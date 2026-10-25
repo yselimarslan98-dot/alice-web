@@ -1124,6 +1124,7 @@ impl Scene {
     /// one copy of them.
     pub fn from_parts(assets: &mut Assets, name: &str, map: Bsp, world: World) -> Result<Self> {
         crate::combat::alert::clear();
+        crate::ai_log::map(name);
         crate::lighting::load_art(assets)?;
         let specs = texture::read_materials(assets)?;
         let atmosphere = Atmosphere::load(assets, name, &map, &specs)?;

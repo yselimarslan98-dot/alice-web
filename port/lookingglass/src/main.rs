@@ -1,6 +1,7 @@
 mod acting;
 mod ambient_animation;
 mod animation_events;
+mod ai_log;
 mod ant;
 mod assets;
 mod userfs;
@@ -310,6 +311,7 @@ fn run() -> Result<()> {
             "--physics-check" => mode = "physics",
             "--fly" => o.fly = true,
             "--fast-movement" => movement::FAST_MOVEMENT.store(true, std::sync::atomic::Ordering::Relaxed),
+            "--ai-log" => ai_log::enable(),
             "--no-audio" => o.no_audio = true,
             "--audio-check" => mode = "audio",
             "--character-check" => mode = "character",

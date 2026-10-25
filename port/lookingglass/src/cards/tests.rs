@@ -311,3 +311,19 @@ fn a_hunting_guard_follows_alice_out_of_sight_until_the_leash_runs_out() {
     assert_eq!(g.phase, Phase::Idle);
     combat::alert::clear();
 }
+#[test]
+fn ai_trace_records_engaged_guards_on_phase_changes_and_twice_a_second() {
+    crate::ai_log::enable();
+    combat::alert::clear();
+    let mut g = guard(Kind::Spade);
+    let eye = vec3(600., 0., 60.);
+    for _ in 0..120 {
+        tick(&mut g, &floor(), eye, 1);
+        crate::ai_log::frame(STEP, eye);
+    }
+    let text = crate::ai_log::text();
+    let lines = text.lines().filter(|l| l.contains(" E1 cardguard_spade ")).count();
+    assert!((2..=8).contains(&lines), "{text}");
+    assert!(text.contains("vis=1"), "{text}");
+    combat::alert::clear();
+}

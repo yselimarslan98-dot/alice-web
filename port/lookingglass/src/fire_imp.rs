@@ -340,6 +340,16 @@ impl Imp {
             3.,
             STEP,
         );
+        crate::ai_log::enemy(
+            self as *const _ as *const (),
+            "fireimp",
+            self.phase,
+            self.feet,
+            distance,
+            visible,
+            self.memory,
+            self.hunt.search,
+        );
         if visible {
             self.memory = 3.;
             self.last_seen = eye;

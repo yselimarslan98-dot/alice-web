@@ -431,6 +431,16 @@ impl Ant {
             3.,
             dt,
         );
+        crate::ai_log::enemy(
+            self as *const _ as *const (),
+            self.model(),
+            self.phase,
+            self.feet,
+            distance,
+            visible,
+            self.memory,
+            self.hunt.search,
+        );
         if self.memory > 0. || self.hunt.active() {
             self.last_seen = Some(last_seen);
         }

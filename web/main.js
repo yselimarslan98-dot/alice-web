@@ -332,10 +332,11 @@ async function readSaves() {
   const walk = async (dir, prefix) => {
     for await (const [name, entry] of dir.entries()) {
       if (entry.kind === 'directory') await walk(entry, `${prefix}${name}/`);
-      else files[prefix + name] = toBase64(new Uint8Array(await (await entry.getFile()).arrayBuffer()));
+      else if (prefix + name !== 'ai-log.txt') files[prefix + name] = toBase64(new Uint8Array(await (await entry.getFile()).arrayBuffer()));
     }
   };
   await walk(await userDataDir(), '');
+
   return files;
 }
 
@@ -460,7 +461,27 @@ function onWorkerMessage(message) {
     case 'stats':
       showStats(m);
       break;
+    case 'ai-log':
+      downloadAiLog(m.bytes);
+      break;
   }
+}
+
+// ---------------------------------------------------------------- enemy AI trace (?ai-log)
+function downloadAiLog(bytes) {
+  if (!bytes || !bytes.length) return toast('Henüz yapay zeka kaydı yok; biraz oynayıp 10 sn bekleyin.');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([bytes], { type: 'text/plain' }));
+  link.download = `alice-ai-log-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.txt`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+}
+if (new URLSearchParams(location.search).has('ai-log')) {
+  $('ai-log-row').hidden = false;
+  $('ai-log-download').addEventListener('click', () => {
+    if (worker) worker.postMessage({ type: 'ai-log' });
+    else toast('Oyun başlamadan kayıt indirilemez.');
+  });
 }
 
 // ---------------------------------------------------------------- input forwarding

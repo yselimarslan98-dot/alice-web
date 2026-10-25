@@ -91,3 +91,6 @@ basitleştirilmiş yaklaşımı. Orijinal durum makineleri oyun verisinde duruyo
   uzaktayken `walk_fast` (230 altında döngü sonunda bırakır).
 - Ateş imp'i, karınca aslanı, fil ışını ve kale hücumu zaten orijinale yakındı; dokunulmadı.
 - Kayıt uyumu: yeni alanlar `#[serde(default)]`; eski kayıtlar yüklenir.
+- **Yapay zeka kaydı (`?ai-log`, yerelde `--ai-log`):** `ai_log.rs` her düşmanı durum değişiminde ve
+  takipteyken 0,5 sn'de bir, Alice'i 0,5 sn'de bir kaydeder; 10 sn'de bir kullanıcı verisine
+  `ai-log.txt` olarak yazar (en fazla ~4 MB, kayıt dışa aktarımına girmez). Ayarlar → "Yapay zeka kaydı → İndir".

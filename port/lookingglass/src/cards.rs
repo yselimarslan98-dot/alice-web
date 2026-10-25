@@ -626,6 +626,16 @@ impl Guard {
             6.,
             STEP,
         );
+        crate::ai_log::enemy(
+            self as *const _ as *const (),
+            self.kind.model(),
+            self.phase,
+            self.feet,
+            distance,
+            visible,
+            self.memory,
+            self.hunt.search,
+        );
         if visible {
             self.memory = 6.;
             self.last_seen = aim;

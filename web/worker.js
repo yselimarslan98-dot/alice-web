@@ -412,5 +412,9 @@ self.onmessage = async (message) => {
     case 'fps':
       setFrameCap(m.fps);
       break;
+    case 'ai-log':
+      post({ type: 'ai-log', bytes: userData.get('/userdata/ai-log.txt') || null });
+      break;
   }
+
 };

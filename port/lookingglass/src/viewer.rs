@@ -1013,6 +1013,7 @@ pub async fn run(mut assets: Assets, mut options: Options) -> Result<()> {
         }
         let elapsed = get_frame_time();
         crate::combat::alert::age(elapsed.clamp(0., 0.05));
+        crate::ai_log::frame(elapsed.clamp(0., 0.05), player.eye());
         let mut weapon_click;
         let mut weapon_input_enabled = false;
         let mut pending_transition = None;

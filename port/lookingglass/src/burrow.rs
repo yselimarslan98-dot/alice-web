@@ -416,6 +416,16 @@ impl Insect {
             6.,
             STEP,
         );
+        crate::ai_log::enemy(
+            self as *const _ as *const (),
+            self.kind.model(),
+            self.phase,
+            self.feet,
+            distance,
+            visible,
+            self.memory,
+            self.hunt.search,
+        );
         // Woken by a blow or a nearby alert rather than by sight.
         let roused = !notarget && self.memory > 0.;
         let duration = rig.duration(self.kind.model(), self.clip());
