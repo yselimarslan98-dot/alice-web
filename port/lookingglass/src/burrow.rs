@@ -117,6 +117,8 @@ pub struct Insect {
     drain_clock: f32,
     victim: Option<usize>,
     offset: Vec3,
+    #[serde(default)]
+    hunt: combat::alert::Hunt,
 }
 impl Insect {
     pub fn new(kind: Kind, feet: Vec3, yaw: f32, scale: f32, seed: usize) -> Self {
@@ -148,6 +150,7 @@ impl Insect {
             drain_clock: 0.,
             victim: None,
             offset: Vec3::ZERO,
+            hunt: Default::default(),
         }
     }
     pub fn target(&self, id: usize) -> Target {
@@ -389,7 +392,9 @@ impl Insect {
             self.last_seen = aim;
         }
         let facing = vec2(self.yaw.cos(), self.yaw.sin()).dot(delta.truncate().normalize_or_zero());
-        if self.memory > 0. && !matches!(self.phase, Phase::Attach | Phase::Suck) {
+        if (self.memory > 0. || self.hunt.active())
+            && !matches!(self.phase, Phase::Attach | Phase::Suck)
+        {
             let d = self.last_seen - from;
             let angle = (d.y.atan2(d.x) - self.yaw + std::f32::consts::PI)
                 .rem_euclid(std::f32::consts::TAU)
@@ -400,15 +405,28 @@ impl Insect {
             self.larva(world, eye, rig, out, visible, aim, victim);
             return;
         }
+        self.hunt.update(
+            world,
+            from,
+            aim,
+            visible,
+            notarget,
+            &mut self.memory,
+            &mut self.last_seen,
+            6.,
+            STEP,
+        );
+        // Woken by a blow or a nearby alert rather than by sight.
+        let roused = !notarget && self.memory > 0.;
         let duration = rig.duration(self.kind.model(), self.clip());
         match self.phase {
             Phase::Hidden => {
-                if visible && self.surface_clear(world) {
+                if (visible || roused) && self.surface_clear(world) {
                     self.enter(Phase::Rise, out);
                 }
             }
             Phase::Idle => {
-                if visible {
+                if visible || roused {
                     self.set(Phase::Walk);
                 }
             }
@@ -418,11 +436,17 @@ impl Insect {
                 }
             }
             Phase::Walk | Phase::Run => {
-                if self.memory == 0. || notarget {
+                if (self.memory == 0. && !self.hunt.active()) || notarget {
+                    self.hunt.clear();
                     self.set(Phase::Idle);
                     return;
                 }
+                // Lost her: check around the last sighting until the search runs out.
+                if !visible && (self.last_seen - from).truncate().length() <= 60. {
+                    self.hunt.wander(self.feet, &mut self.last_seen);
+                }
                 if visible
+
                     && distance < 100. * self.scale
                     && delta.z.abs() < 90. * self.scale
                     && facing > 0.6
@@ -652,6 +676,7 @@ impl Insect {
                 && self.contacts < 32
                 && (0. ..=0.6).contains(&self.cooldown)
                 && (0. ..=6.).contains(&self.memory)
+                && self.hunt.valid()
                 && self.last_seen.is_finite()
                 && self.recoil.valid()
                 && self.velocity.is_finite()

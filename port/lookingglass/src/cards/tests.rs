@@ -264,3 +264,25 @@ fn local_chase_stays_before_walls_and_ledge() {
         assert!(g.feet.x < 50. && g.feet.z >= 0.);
     }
 }
+#[test]
+fn ordered_guard_routes_around_a_wall_and_idle_guards_answer_alerts() {
+    let world = World::fixture(&[
+        (vec3(-2000., -2000., -30.), vec3(2000., 2000., 0.)),
+        (vec3(250., -200., 0.), vec3(280., 200., 300.)),
+    ]);
+    let eye = vec3(600., 0., 60.);
+    let mut g = guard(Kind::Spade);
+    g.attack_player(eye);
+    tick(&mut g, &world, eye, 2400);
+    assert!(g.feet.x > 300., "stuck behind the wall at {:?}", g.feet);
+    assert!(g.validate().is_ok());
+
+    combat::alert::clear();
+    let mut idle = guard(Kind::Heart);
+    tick(&mut idle, &world, eye, 1);
+    assert_eq!(idle.phase, Phase::Idle, "wall hides Alice");
+    combat::alert::raise(vec3(100., 0., 80.), eye);
+    tick(&mut idle, &world, eye, 1);
+    assert_eq!(idle.phase, Phase::Alert);
+    combat::alert::clear();
+}

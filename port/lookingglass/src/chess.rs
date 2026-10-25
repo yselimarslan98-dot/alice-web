@@ -175,6 +175,10 @@ pub struct Piece {
     last_seen: Vec3,
     block_cooldown: f32,
     random: u32,
+    #[serde(default)]
+    detour: crate::combat::navigation::Detour,
+    #[serde(default)]
+    hunt: crate::combat::alert::Hunt,
 }
 impl Piece {
     pub fn new(kind: Kind, feet: Vec3, yaw: f32, scale: f32, seed: usize) -> Self {
@@ -203,6 +207,8 @@ impl Piece {
             last_seen: feet,
             block_cooldown: 0.,
             random: seed as u32,
+            detour: Default::default(),
+            hunt: Default::default(),
         }
     }
     pub fn target(&self, id: usize) -> Target {
@@ -435,6 +441,17 @@ impl Piece {
         let sight = world.sweep(self.target(0).center, eye, Vec3::splat(0.5));
         let visible =
             !notarget && delta.length() < 800. && !sight.start_solid && sight.fraction >= 1.;
+        self.hunt.update(
+            world,
+            self.target(0).center,
+            eye,
+            visible,
+            notarget,
+            &mut self.memory,
+            &mut self.last_seen,
+            3.,
+            dt,
+        );
         if visible {
             self.memory = 3.;
             self.last_seen = eye;
@@ -444,7 +461,7 @@ impl Piece {
         if notarget {
             self.memory = 0.;
         }
-        let pursuing = visible || self.memory > 0.;
+        let pursuing = visible || self.memory > 0. || self.hunt.active();
         let toward = if visible {
             delta
         } else {
@@ -587,34 +604,48 @@ impl Piece {
                         );
                     } else if !visible {
                         self.memory = 0.;
+                        if self.hunt.active() {
+                            self.hunt.wander(self.feet, &mut self.last_seen);
+                        }
                     }
                     // Loop the rendered clip, but retain the short attack decision timer.
                     self.time = self.time.min(10.);
                 }
             }
-            Phase::Chase if !pursuing => self.set(Phase::Idle),
+            Phase::Chase if !pursuing => {
+                self.detour.clear();
+                self.set(Phase::Idle)
+            }
             _ => {}
         }
     }
     fn walk(&mut self, world: &World, delta: Vec3, step: f32, sidestep: bool) -> bool {
-        let direction = delta.truncate().extend(0.).normalize_or_zero();
-        for angle in if sidestep {
-            &[0., 0.65, -0.65, 1.1, -1.1][..]
-        } else {
-            &[0.][..]
-        } {
-            let next = crate::combat::walk_body(
+        if sidestep {
+            // Route around walls and props toward the goal.
+            let before = self.feet;
+            self.feet = self.detour.walk(
                 world,
                 self.feet,
-                Quat::from_rotation_z(*angle) * direction * step * self.scale,
+                self.feet + delta.with_z(0.),
                 self.kind.half() * self.scale,
+                step * self.scale,
+                1. / 120.,
             );
-            if next.truncate().distance_squared(self.feet.truncate()) > 0.0001 {
-                self.feet = next;
-                return true;
-            }
+            return before.truncate().distance_squared(self.feet.truncate()) > 0.0001;
+        }
+        let direction = delta.truncate().extend(0.).normalize_or_zero();
+        let next = crate::combat::walk_body(
+            world,
+            self.feet,
+            direction * step * self.scale,
+            self.kind.half() * self.scale,
+        );
+        if next.truncate().distance_squared(self.feet.truncate()) > 0.0001 {
+            self.feet = next;
+            return true;
         }
         false
+
     }
     pub fn validate(&self) -> Result<()> {
         ensure!(
@@ -633,6 +664,9 @@ impl Piece {
                 && self.recoil.valid()
                 && self.last_seen.is_finite()
                 && (0. ..=3.).contains(&self.memory)
+                && self.hunt.valid()
+                && self.detour.valid()
+
                 && (0. ..=2.).contains(&self.block_cooldown)
                 && (0. ..=800.).contains(&self.falling)
                 && (0. ..=0.01).contains(&self.accumulator)

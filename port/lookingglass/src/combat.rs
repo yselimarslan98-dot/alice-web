@@ -1,6 +1,7 @@
 //! Bounded card-guard encounters and swept weapon contacts; no original AI executes.
 use crate::collision::World;
 use macroquad::prelude::*;
+pub(crate) mod alert;
 pub(crate) mod navigation;
 
 #[derive(Clone, Copy, Debug)]

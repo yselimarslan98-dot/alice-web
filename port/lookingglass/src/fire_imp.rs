@@ -78,6 +78,10 @@ pub struct Imp {
     last_seen: Vec3,
     pain: f32,
     random: u32,
+    #[serde(default)]
+    detour: crate::combat::navigation::Detour,
+    #[serde(default)]
+    hunt: crate::combat::alert::Hunt,
 }
 impl Imp {
     pub fn new(feet: Vec3, yaw: f32, scale: f32, seed: usize, active: bool) -> Self {
@@ -107,6 +111,8 @@ impl Imp {
             last_seen: feet,
             pain: 0.,
             random: seed as u32,
+            detour: Default::default(),
+            hunt: Default::default(),
         }
     }
     pub fn target(&self, id: usize) -> Target {
@@ -323,6 +329,17 @@ impl Imp {
         let sight = world.sweep(body.center, eye, Vec3::splat(0.5));
         let visible =
             !notarget && delta.length() < 800. && !sight.start_solid && sight.fraction >= 1.;
+        self.hunt.update(
+            world,
+            body.center,
+            eye,
+            visible,
+            notarget,
+            &mut self.memory,
+            &mut self.last_seen,
+            3.,
+            STEP,
+        );
         if visible {
             self.memory = 3.;
             self.last_seen = eye;
@@ -332,7 +349,7 @@ impl Imp {
         if notarget {
             self.memory = 0.;
         }
-        let pursuing = visible || self.memory > 0.;
+        let pursuing = visible || self.memory > 0. || self.hunt.active();
         let toward = if visible {
             delta
         } else {
@@ -396,30 +413,31 @@ impl Imp {
                         self.set(phase);
                     }
                     if toward.truncate().length() > 24. {
+                        // Route around walls and props toward the goal.
                         let step = data.speed(MODEL, self.clip()) * STEP * self.scale;
-                        for angle in [0., 0.65, -0.65, 1.1, -1.1] {
-                            let next = crate::combat::walk_body(
-                                world,
-                                self.feet,
-                                Quat::from_rotation_z(angle)
-                                    * toward.truncate().extend(0.).normalize_or_zero()
-                                    * step,
-                                HALF * self.scale,
-                            );
-                            if next.truncate().distance_squared(self.feet.truncate()) > 0.0001 {
-                                self.feet = next;
-                                break;
-                            }
-                        }
+                        self.feet = self.detour.walk(
+                            world,
+                            self.feet,
+                            self.feet + toward.with_z(0.),
+                            HALF * self.scale,
+                            step,
+                            STEP,
+                        );
                     } else if !visible {
                         self.memory = 0.;
+                        if self.hunt.active() {
+                            self.hunt.wander(self.feet, &mut self.last_seen);
+                        }
                     }
                     if self.time >= duration {
                         self.time %= duration;
                     }
                 }
             }
-            Phase::Walk | Phase::Run => self.set(Phase::Idle),
+            Phase::Walk | Phase::Run => {
+                self.detour.clear();
+                self.set(Phase::Idle)
+            }
             Phase::Idle if self.time >= 13. => {
                 if self.random() % 3 == 0 {
                     self.set(Phase::Twitch);
@@ -451,6 +469,9 @@ impl Imp {
                 && self.launch.into_iter().chain(self.flight).all(|v| v.is_finite() && v.length() < 4000.)
                 && self.last_seen.is_finite()
                 && (0. ..=3.).contains(&self.memory)
+                && self.hunt.valid()
+                && self.detour.valid()
+
                 && (0. ..=35.).contains(&self.pain)
                 && (0. ..=800.).contains(&self.falling)
                 && (0. ..=0.01).contains(&self.accumulator)

@@ -108,6 +108,8 @@ pub struct Ant {
     memory: f32,
     #[serde(default)]
     detour: crate::combat::navigation::Detour,
+    #[serde(default)]
+    hunt: crate::combat::alert::Hunt,
     #[serde(skip)]
     pub notarget: bool,
     #[serde(default)]
@@ -140,6 +142,7 @@ impl Ant {
             last_seen: None,
             memory: 0.,
             detour: Default::default(),
+            hunt: Default::default(),
             notarget: false,
             id,
             corporal,
@@ -410,6 +413,21 @@ impl Ant {
             && delta.length() < self.sight_range.unwrap_or(if self.corporal { 1200. } else { 1000. })
             && !sight.start_solid
             && sight.fraction >= 1.;
+        let mut last_seen = self.last_seen.unwrap_or(eye);
+        self.hunt.update(
+            world,
+            self.target(0).center,
+            eye,
+            visible,
+            notarget,
+            &mut self.memory,
+            &mut last_seen,
+            3.,
+            dt,
+        );
+        if self.memory > 0. || self.hunt.active() {
+            self.last_seen = Some(last_seen);
+        }
         if visible {
             self.last_seen = Some(eye);
             self.memory = 3.;
@@ -419,7 +437,7 @@ impl Ant {
                 self.memory = 0.;
             }
         }
-        let pursuing = visible || self.memory > 0.;
+        let pursuing = visible || self.memory > 0. || self.hunt.active();
         if !visible && pursuing {
             delta = self.last_seen.unwrap_or(eye) - self.target(0).center;
         }
@@ -525,10 +543,18 @@ impl Ant {
                         self.walk(world, delta, data.speed(self.model(), "walk_medium") * dt);
                     } else if !visible {
                         self.memory = 0.;
+                        if self.hunt.active() {
+                            let mut p = self.last_seen.unwrap_or(self.feet);
+                            self.hunt.wander(self.feet, &mut p);
+                            self.last_seen = Some(p);
+                        }
                     }
                 }
             }
-            Phase::Chase if !pursuing => self.set(Phase::Idle),
+            Phase::Chase if !pursuing => {
+                self.detour.clear();
+                self.set(Phase::Idle)
+            }
             _ => {}
         }
     }
@@ -538,7 +564,8 @@ impl Ant {
     }
     pub fn validate(&self) -> Result<()> {
         ensure!(
-            self.detour.valid() && self.variant < 3
+            self.detour.valid() && self.hunt.valid() && self.variant < 3
+
                 && self.scale.is_finite()
                 && self.sight_range.is_none_or(|r| r.is_finite() && (1. ..=10000.).contains(&r))
                 && (0.01..=10.).contains(&self.scale)

@@ -152,7 +152,13 @@ pub struct Guard {
     last_seen: Vec3,
     random: u32,
     serial: u32,
+    #[serde(default)]
+    detour: combat::navigation::Detour,
+    #[serde(default)]
+    hunt: combat::alert::Hunt,
 }
+/// Heart guards only charge or slam from inside this range; farther away they close in first.
+const HEART_RANGED: f32 = 650.;
 impl Guard {
     pub fn new(kind: Kind, feet: Vec3, yaw: f32, scale: f32, seed: usize) -> Self {
         Self {
@@ -182,6 +188,8 @@ impl Guard {
             last_seen: feet,
             random: seed as u32,
             serial: 0,
+            detour: Default::default(),
+            hunt: Default::default(),
         }
     }
     pub fn target(&self, id: usize) -> Target {
@@ -542,6 +550,17 @@ impl Guard {
                     } else {
                         -0.766
                     });
+        self.hunt.update(
+            world,
+            from,
+            aim,
+            visible,
+            notarget,
+            &mut self.memory,
+            &mut self.last_seen,
+            6.,
+            STEP,
+        );
         if visible {
             self.memory = 6.;
             self.last_seen = aim;
@@ -551,7 +570,7 @@ impl Guard {
         } else {
             self.last_seen - self.feet
         };
-        if (visible || self.memory > 0.) && self.phase != Phase::Pain {
+        if (visible || self.memory > 0. || self.hunt.active()) && self.phase != Phase::Pain {
             let d = if self.loops() { movement } else { delta };
             let angle = (d.y.atan2(d.x) - self.yaw + std::f32::consts::PI)
                 .rem_euclid(std::f32::consts::TAU)
@@ -561,7 +580,8 @@ impl Guard {
         let duration = rig.duration(self.kind.model(), self.clip());
         match self.phase {
             Phase::Idle => {
-                if visible {
+                // Also wake when struck or called by a nearby guard.
+                if visible || (self.memory > 0. && !notarget) {
                     self.variant = self.random() % 12;
                     self.enter(Phase::Alert, out);
                 }
@@ -572,9 +592,15 @@ impl Guard {
                 }
             }
             Phase::Chase | Phase::Run | Phase::Flee => {
-                if self.memory == 0. || notarget {
+                if (self.memory == 0. && !self.hunt.active()) || notarget {
+                    self.detour.clear();
+                    self.hunt.clear();
                     self.set(Phase::Idle);
                     return;
+                }
+                // Lost her: check around the last sighting until the search runs out.
+                if !visible && movement.truncate().length() <= 50. && self.phase != Phase::Flee {
+                    self.hunt.wander(self.feet, &mut self.last_seen);
                 }
                 if visible && facing > 0.65 && self.cooldown == 0. && self.phase != Phase::Flee {
                     self.variant = self.random() % 12;
@@ -589,7 +615,8 @@ impl Guard {
                         );
                         return;
                     } else if distance < self.vision
-                        && self.random() % 100 < if self.kind == Kind::Heart { 67 } else { 40 }
+                        && (self.kind == Kind::Spade || distance < HEART_RANGED * self.scale)
+                        && self.random() % 100 < if self.kind == Kind::Heart { 50 } else { 40 }
                     {
                         let phase = if self.kind == Kind::Spade {
                             Phase::Fire
@@ -613,7 +640,18 @@ impl Guard {
                 if self.phase != phase {
                     self.set(phase);
                 }
-                if movement.truncate().length() > 50. {
+                if movement.truncate().length() > 50. && self.phase != Phase::Flee {
+                    // Route around walls and props toward the last sighting.
+                    let stride = rig.speed(self.kind.model(), self.clip()) * STEP * self.scale;
+                    self.feet = self.detour.walk(
+                        world,
+                        self.feet,
+                        self.last_seen.with_z(self.feet.z),
+                        self.target(0).half,
+                        stride,
+                        STEP,
+                    );
+                } else if movement.truncate().length() > 50. {
                     let stride = rig.speed(self.kind.model(), self.clip()) * STEP * self.scale;
                     let dir = movement.with_z(0.).normalize_or_zero();
                     for angle in [0., 0.65, -0.65, 1.1, -1.1] {
@@ -720,6 +758,9 @@ impl Guard {
                 && self.variant < 12
                 && (0. ..=1.).contains(&self.cooldown)
                 && (0. ..=6.).contains(&self.memory)
+                && self.hunt.valid()
+                && self.detour.valid()
+
                 && self.last_seen.is_finite()
                 && self.pain.is_finite()
                 && self.pain >= 0.

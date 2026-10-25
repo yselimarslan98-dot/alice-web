@@ -100,6 +100,10 @@ pub struct Automaton {
     cooldown: f32,
     random: u32,
     serial: u32,
+    #[serde(default)]
+    detour: combat::navigation::Detour,
+    #[serde(default)]
+    hunt: combat::alert::Hunt,
 }
 impl Automaton {
     pub fn new(feet: Vec3, yaw: f32, scale: f32, seed: usize, active: bool) -> Self {
@@ -130,6 +134,8 @@ impl Automaton {
             cooldown: 0.,
             random: seed as u32,
             serial: 0,
+            detour: Default::default(),
+            hunt: Default::default(),
         }
     }
     pub fn target(&self, id: usize) -> Target {
@@ -379,6 +385,17 @@ impl Automaton {
             let t = world.sweep(body.center, eye, Vec3::splat(0.5));
             !t.start_solid && t.fraction >= 1.
         };
+        self.hunt.update(
+            world,
+            body.center,
+            eye,
+            visible,
+            notarget,
+            &mut self.memory,
+            &mut self.last_seen,
+            3.,
+            STEP,
+        );
         if visible {
             self.memory = 3.;
             self.last_seen = eye;
@@ -388,7 +405,7 @@ impl Automaton {
         if notarget {
             self.memory = 0.;
         }
-        let pursuing = visible || self.memory > 0.;
+        let pursuing = visible || self.memory > 0. || self.hunt.active();
         let toward = if visible {
             delta
         } else {
@@ -534,13 +551,19 @@ impl Automaton {
                         self.walk(world, toward, data.speed(MODEL, self.clip()) * STEP);
                     } else if !visible {
                         self.memory = 0.;
+                        if self.hunt.active() {
+                            self.hunt.wander(self.feet, &mut self.last_seen);
+                        }
                     }
                     self.time = self.time.min(10.);
                 } else {
                     self.time = self.time.min(10.);
                 }
             }
-            Phase::Ready | Phase::Walk | Phase::Fast => self.set(Phase::Idle),
+            Phase::Ready | Phase::Walk | Phase::Fast => {
+                self.detour.clear();
+                self.set(Phase::Idle)
+            }
             Phase::Idle if self.time >= 16. => {
                 if self.random() % 5 == 0 {
                     self.set(Phase::Twitch);
@@ -552,21 +575,15 @@ impl Automaton {
         }
     }
     fn walk(&mut self, world: &World, delta: Vec3, step: f32) {
-        for angle in [0., 0.65, -0.65, 1.1, -1.1] {
-            let next = combat::walk_body(
-                world,
-                self.feet,
-                Quat::from_rotation_z(angle)
-                    * delta.truncate().extend(0.).normalize_or_zero()
-                    * step
-                    * self.scale,
-                HALF * self.scale,
-            );
-            if next.truncate().distance_squared(self.feet.truncate()) > 0.0001 {
-                self.feet = next;
-                break;
-            }
-        }
+        // Route around walls and props toward the goal.
+        self.feet = self.detour.walk(
+            world,
+            self.feet,
+            self.feet + delta.with_z(0.),
+            HALF * self.scale,
+            step * self.scale,
+            STEP,
+        );
     }
     pub fn validate(&self) -> Result<()> {
         ensure!(
@@ -591,6 +608,9 @@ impl Automaton {
                 && self.recoil.valid()
                 && self.last_seen.is_finite()
                 && (0. ..=3.).contains(&self.memory)
+                && self.hunt.valid()
+                && self.detour.valid()
+
                 && (0. ..=400.).contains(&self.pain)
                 && (0. ..=1.).contains(&self.cooldown)
                 && (0. ..=800.).contains(&self.falling)

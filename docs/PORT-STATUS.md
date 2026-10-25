@@ -1,6 +1,6 @@
 # Port durumu (Looking Glass → tarayıcı)
 
-Son güncelleme: 2026-10-24. Başlangıç denemesi: [SPIKE-C.md](SPIKE-C.md). Yayınlama: [PUBLISHING.md](PUBLISHING.md).
+Son güncelleme: 2026-10-25. Başlangıç denemesi: [SPIKE-C.md](SPIKE-C.md). Yayınlama: [PUBLISHING.md](PUBLISHING.md).
 
 ## Mimari
 
@@ -64,4 +64,21 @@ Performans iyileştirmeleri (bu dönem):
 5. **Upstream:** LG `055b1d1`. Yerel yamalar: `assets.rs` (wasm pk3 köprüsü), `audio.rs` (web
    çıkışı, park etme), `acoustics.rs`, `movement.rs` + `preferences.rs` (hızlar), `save.rs`,
    `viewer.rs` (yükleme karesi, WebGL2), `main.rs`, `input.rs` + kontrolcü ipuçları (`hud.rs`, `menu.rs`, `movie.rs`, `chapters.rs`), yeni `userfs.rs`, mekanik `as u64`,
-   `render.rs` (`draw_batch` kısmi görünürlük). miniquad: `port/miniquad` (bkz. LGWEB.md).
+   `render.rs` (`draw_batch` kısmi görünürlük), düşman yapay zekası (aşağıda). miniquad: `port/miniquad` (bkz. LGWEB.md).
+6. **Hareket testleri:** Orijinal hızlara geçişten beri `movement::tests` içindeki 4 test eski 320 u/s
+   koşma hızını varsayıyor ve başarısız oluyor (oyun davranışı doğru; testler güncellenmedi).
+
+## Düşman yapay zekası (yerel geliştirme)
+
+LG'nin düşman kodu upstream ile birebir aynıydı; "aptal" davranış port hatası değil, LG'nin
+basitleştirilmiş yaklaşımı. Yerel iyileştirmeler (yeni `combat/alert.rs`):
+
+- **Yol bulma:** Kart askerleri, satranç taşları, saat askerleri ve ateş imp'leri artık karıncaların
+  kullandığı `combat::navigation::Detour` ile engellerin etrafından dolaşıyor (eskiden düz çizgi + 5 açı).
+- **Arama:** Görüş hafızası bitince 8 sn boyunca son görülen noktanın çevresini dolaşarak arıyorlar
+  (kart askeri, satranç, saat askeri, ateş imp'i, karınca, karınca aslanı).
+- **Haberleşme:** Alice'i ilk gören ya da boştayken vurulan düşman bir uyarı yayıyor; 360 birim içinde
+  veya 900 birime kadar açık görüşteki boştaki düşmanlar uyanıp aynı noktaya koşuyor (gizli karınca
+  aslanları da çıkıyor). Uyarılar 1,5 sn yaşar, kaydedilmez, harita değişince temizlenir.
+- **Kupa askeri:** Uzaktan saldırı (charge/slam) yalnızca 650 birim içinde ve %50 olasılıkla; uzaktaysa önce yaklaşıyor.
+- Kayıt uyumu: yeni alanlar `#[serde(default)]`; eski kayıtlar yüklenir.
