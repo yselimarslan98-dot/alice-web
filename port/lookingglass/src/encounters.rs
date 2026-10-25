@@ -233,7 +233,9 @@ impl Encounters {
             hit: attack.frame_time * 5.,
             pain: clip("pain1")?.duration(),
             death: clip("death_1")?.duration(),
+            gait: crate::combat::Gait::from_clips(&clip("walk")?, &clip("run")?, d.scale),
         };
+
         Ok(Self {
             identities,
             actors,

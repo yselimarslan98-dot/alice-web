@@ -157,6 +157,8 @@ pub enum State {
     Attack,
     Pain,
     Dead,
+    /// CHARGE in `ai/cardguard_club.st` / `cardguard_diamond.st`.
+    Run,
 }
 impl State {
     pub fn clip(self) -> &'static str {
@@ -164,13 +166,14 @@ impl State {
             Self::Idle => "idle",
             Self::Alert => "alert1",
             Self::Chase => "walk",
+            Self::Run => "run",
             Self::Attack => "attack1",
             Self::Pain => "pain1",
             Self::Dead => "death_1",
         }
     }
     pub fn loops(self) -> bool {
-        matches!(self, Self::Idle | Self::Chase)
+        matches!(self, Self::Idle | Self::Chase | Self::Run)
     }
 }
 #[derive(Clone, Copy)]
@@ -181,6 +184,36 @@ pub struct Timing {
     pub hit: f32,
     pub pain: f32,
     pub death: f32,
+    pub gait: Gait,
+}
+/// Walk and run cycles (seconds) and their travel speeds (units/s), from the clips.
+#[derive(Clone, Copy, Debug)]
+pub struct Gait {
+    pub walk: f32,
+    pub walk_speed: f32,
+    pub run: f32,
+    pub run_speed: f32,
+}
+impl Default for Gait {
+    /// Used where the clips are not at hand; close to the card guards' authored gaits.
+    fn default() -> Self {
+        Self { walk: 1., walk_speed: 95., run: 0.6, run_speed: 220. }
+    }
+}
+impl Gait {
+    pub fn from_clips(
+        walk: &crate::skeletal::Animation,
+        run: &crate::skeletal::Animation,
+        scale: f32,
+    ) -> Self {
+        let speed = |c: &crate::skeletal::Animation| (c.distance * scale / c.duration()).max(1.);
+        Self {
+            walk: walk.duration().max(0.1),
+            walk_speed: speed(walk),
+            run: run.duration().max(0.1),
+            run_speed: speed(run),
+        }
+    }
 }
 #[derive(Default)]
 pub struct Feedback {
@@ -293,6 +326,19 @@ pub struct Guard {
     falling: f32,
     #[serde(default)]
     placed: bool,
+    #[serde(default)]
+    memory: f32,
+    #[serde(default)]
+    last_seen: Vec3,
+    #[serde(default)]
+    hunt: alert::Hunt,
+    #[serde(default)]
+    detour: navigation::Detour,
+    #[serde(default)]
+    random: u32,
+    /// Walking toward the target made no progress last step (original NO_PATH).
+    #[serde(skip)]
+    held: bool,
 }
 impl Guard {
     pub fn validate_save(&self) -> anyhow::Result<()> {
@@ -328,6 +374,10 @@ impl Guard {
                 && self.recoil.valid()
                 && (!self.frozen || self.health == 0.)
                 && self.home.is_finite()
+                && (0. ..=6.).contains(&self.memory)
+                && self.last_seen.is_finite()
+                && self.hunt.valid()
+                && self.detour.valid()
                 && ((self.state == State::Dead) == (self.health == 0.)),
             "Invalid saved guard"
         );
@@ -366,7 +416,14 @@ impl Guard {
             accumulator: 0.,
             falling: 0.,
             placed: false,
+            memory: 0.,
+            last_seen: feet,
+            hunt: Default::default(),
+            detour: Default::default(),
+            random: 0,
+            held: false,
         }
+
     }
     pub fn target(&self, id: usize) -> Target {
         Target {
@@ -392,7 +449,23 @@ impl Guard {
             self.state.clip()
         }
     }
+    fn roll(&mut self) -> f32 {
+        if self.random == 0 {
+            self.random = (self.feet.x.to_bits() ^ self.feet.y.to_bits().rotate_left(16)) | 1;
+        }
+        self.random = self.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        ((self.random >> 16) % 1000) as f32 / 1000.
+    }
+    fn attack(&mut self, out: &mut Feedback) {
+        self.set_state(State::Attack);
+        out.sounds.push(if self.ranged {
+            "sound/character/cardguard/diamond/stand_attack.wav"
+        } else {
+            "sound/character/cardguard/club/attack1.wav"
+        });
+    }
     fn set_state(&mut self, state: State) {
+
         if self.state != state {
             self.state = state;
             self.time = 0.;
@@ -558,40 +631,81 @@ impl Guard {
             Vec3::ZERO
         };
         let distance = delta.truncate().length();
-        let aware = !notarget
-            && delta.length_squared()
-                < if self.ranged {
-                    900. * 900.
-                } else {
-                    420. * 420.
-                }
-            && eye.distance_squared(self.home)
-                < if self.ranged {
-                    1000. * 1000.
-                } else {
-                    700. * 700.
-                };
+        let center = self.target(0).center;
         // Distant actors should not trace across the entire level at 120 Hz.
-        let visible = aware && {
-            let sight = world.sweep(self.target(0).center, eye, Vec3::splat(0.5));
+        let range = if self.ranged { 1200. } else { 1000. };
+        let visible = !notarget && delta.length_squared() < range * range && {
+            let sight = world.sweep(center, eye, Vec3::splat(0.5));
             !sight.start_solid && sight.fraction >= 1.
         };
-        let aware = aware && visible;
-        if !matches!(self.state, State::Attack | State::Pain) && aware {
-            let angle = delta.y.atan2(delta.x);
+        // HAVE_ENEMY: a seen or alerted guard keeps heading for Alice's actual position.
+        self.hunt.update(
+            world,
+            center,
+            eye,
+            visible,
+            notarget,
+            &mut self.memory,
+            &mut self.last_seen,
+            6.,
+            dt,
+        );
+        crate::ai_log::enemy(
+            self as *const _ as *const (),
+            if self.ranged { "cardguard_diamond" } else { "cardguard_club" },
+            self.state,
+            self.feet,
+            distance,
+            visible,
+            self.memory,
+            self.hunt.search,
+        );
+        if visible {
+            self.memory = 6.;
+            self.last_seen = eye;
+        } else {
+            self.memory = (self.memory - dt).max(0.);
+        }
+        if notarget {
+            self.memory = 0.;
+        }
+        let engaged = visible || self.memory > 0. || self.hunt.active();
+        let goal = if visible { eye } else { self.last_seen };
+        let toward = goal - center;
+        if !matches!(self.state, State::Attack | State::Pain) && engaged {
+            let angle = toward.y.atan2(toward.x);
             let difference = (angle - self.yaw + std::f32::consts::PI)
                 .rem_euclid(std::f32::consts::TAU)
                 - std::f32::consts::PI;
             self.yaw += difference.clamp(-dt * 4., dt * 4.);
         }
+        let facing = delta
+            .truncate()
+            .normalize_or_zero()
+            .dot(vec2(self.yaw.cos(), self.yaw.sin()))
+            > 0.5;
+        // ATTACK_READY range of both card guards.
+        let melee = 100. * self.scale + reach.x;
+        let in_melee = visible && distance <= melee && delta.z.abs() < 55. * self.scale + reach.z;
+        let gait = timing.gait;
         match self.state {
-            State::Idle if aware => {
-                self.set_state(State::Alert);
-                out.sounds.push(if self.ranged {
-                    "sound/character/cardguard/diamond/alert1.wav"
-                } else {
-                    "sound/character/cardguard/club/alert1.wav"
-                });
+            State::Idle => {
+                if visible {
+                    // Diamond IDLE: STAND_ATTACK at once half the time; otherwise close in.
+                    if self.ranged && facing && self.roll() < 0.5 {
+                        self.attack(out);
+                    } else {
+                        self.set_state(State::Chase);
+                    }
+                } else if self.memory > 0. && !notarget {
+                    // Struck, or called by a nearby guard (NOISE_HEARD): alert first.
+                    self.set_state(State::Alert);
+                    out.sounds.push(if self.ranged {
+                        "sound/character/cardguard/diamond/alert1.wav"
+                    } else {
+                        "sound/character/cardguard/club/alert1.wav"
+                    });
+                }
             }
             State::Alert if self.time >= timing.alert => self.set_state(State::Chase),
             State::Pain if self.time >= timing.pain => self.set_state(State::Chase),
@@ -607,42 +721,76 @@ impl Guard {
                         });
                         self.attacks += 1;
                     }
-                    if !self.ranged
-                        && visible
-                        && distance <= 78. * self.scale + reach.x
-                        && delta.z.abs() < 55. * self.scale + reach.z
-                        && delta
-                            .truncate()
-                            .normalize_or_zero()
-                            .dot(vec2(self.yaw.cos(), self.yaw.sin()))
-                            > 0.5
-                    {
+                    if !self.ranged && in_melee && facing {
                         out.strike(victim, 12., Vec3::ZERO, DamageKind::Other);
                     }
                 }
                 if self.time >= timing.attack {
-                    self.cooldown = 0.65;
+                    self.cooldown = 0.3;
                     self.set_state(State::Chase);
                 }
             }
-            State::Chase => {
-                if !aware {
+            State::Chase | State::Run => {
+                if !engaged {
+                    self.detour.clear();
+                    self.hunt.clear();
                     self.set_state(State::Idle);
-                } else if (self.ranged && distance < 600.)
-                    || (distance < 60. * self.scale + reach.x
-                        && delta.z.abs() < 55. * self.scale + reach.z)
-                {
-                    if self.cooldown <= 0. {
-                        self.set_state(State::Attack);
-                        out.sounds.push(if self.ranged {
-                            "sound/character/cardguard/diamond/stand_attack.wav"
+                    return;
+                }
+                let cycle_length = if self.state == State::Run { gait.run } else { gait.walk };
+                // Decisions gated on ANIM_DONE are taken once per locomotion cycle.
+                let cycle =
+                    (self.time / cycle_length).floor() > ((self.time - dt) / cycle_length).floor();
+                if in_melee && facing && self.cooldown <= 0. {
+                    self.attack(out);
+                    return;
+                }
+                if self.ranged && visible && facing && self.cooldown <= 0. && cycle {
+                    // Diamond: WALK_ATTACK 33.3% per walk cycle, CHARGE_ATTACK 20% per run
+                    // cycle, HOLD_POSITION (no path) 80% beyond 250.
+                    let chance = if self.held {
+                        if distance > 250. * self.scale {
+                            0.8
                         } else {
-                            "sound/character/cardguard/club/attack1.wav"
-                        });
+                            0.
+                        }
+                    } else if self.state == State::Run {
+                        0.2
+                    } else {
+                        0.333
+                    };
+                    if self.roll() < chance {
+                        self.attack(out);
+                        return;
                     }
-                } else if self.feet.distance(self.home) < 500. {
-                    let wish = delta.truncate().normalize_or_zero().extend(0.) * 95. * dt;
-                    self.feet = walk(world, self.feet, wish, self.scale);
+                }
+                // CHARGE beyond 150 (club) / 250 (diamond); back to a walk at the end of a run
+                // cycle inside 180 / 250.
+                let (charge, settle) = if self.ranged { (250., 250.) } else { (150., 180.) };
+                if self.state == State::Chase && visible && distance > charge * self.scale {
+                    self.set_state(State::Run);
+                } else if self.state == State::Run && cycle && distance < settle * self.scale {
+                    self.set_state(State::Chase);
+                }
+                if toward.truncate().length() > 40. * self.scale {
+                    let speed = if self.state == State::Run {
+                        gait.run_speed
+                    } else {
+                        gait.walk_speed
+                    };
+                    let before = self.feet;
+                    self.feet = self.detour.walk(
+                        world,
+                        self.feet,
+                        goal.with_z(self.feet.z),
+                        self.target(0).half,
+                        speed * self.scale * dt,
+                        dt,
+                    );
+                    self.held =
+                        before.truncate().distance_squared(self.feet.truncate()) < 0.0001;
+                } else {
+                    self.held = false;
                 }
             }
             _ => (),
@@ -772,8 +920,10 @@ mod tests {
             hit: 0.4,
             pain: 0.3,
             death: 1.,
+            gait: Default::default(),
         }
     }
+
     fn floor() -> World {
         World::fixture(&[(vec3(-1000., -1000., -20.), vec3(1000., 1000., 0.))])
     }
@@ -1057,5 +1207,24 @@ mod tests {
                 .damage,
             7.
         );
+    }
+    #[test]
+    fn club_hunts_beyond_its_post_and_around_cover() {
+        alert::clear();
+        let world = World::fixture(&[
+            (vec3(-1500., -1500., -20.), vec3(1500., 1500., 0.)),
+            (vec3(600., -300., 0.), vec3(630., 300., 200.)),
+        ]);
+        let mut g = Guard::new(Vec3::ZERO, 0., 1.);
+        g.advance(0.1, &world, vec3(300., 0., 48.), timing());
+        assert_eq!(g.state, State::Run, "a club guard charges from beyond 150 units");
+        // Alice runs off well past the old 700-unit post limit and behind a wall.
+        let hidden = vec3(1100., 0., 48.);
+        for _ in 0..60 * 20 {
+            g.advance(1. / 60., &world, hidden, timing());
+        }
+        assert!(g.feet.x > 700., "stopped at {:?}", g.feet);
+        assert!(g.validate_save().is_ok());
+        alert::clear();
     }
 }

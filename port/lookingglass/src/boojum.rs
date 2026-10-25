@@ -244,6 +244,17 @@ impl Boojum {
         let distance = delta.length();
         let sight = world.sweep(center, eye, Vec3::splat(0.5));
         let visible = !notarget && !sight.start_solid && sight.fraction >= 1. && distance < 1200.;
+        crate::ai_log::enemy(
+            self as *const _ as *const (),
+            "c_boojum",
+            self.state,
+            self.feet,
+            distance,
+            visible,
+            0.,
+            self.wait,
+        );
+
         let angle = delta.y.atan2(delta.x);
         let turn = (angle - self.yaw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
             - std::f32::consts::PI;

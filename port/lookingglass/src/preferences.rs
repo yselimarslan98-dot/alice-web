@@ -104,7 +104,12 @@ pub struct Preferences {
     pub pad_sensitivity: f32,
     pub pad_deadzone: f32,
     pub invert_pad: bool,
+    /// Older preferences kept "Safe footing" on R, beside WASD; set once it has moved.
+    #[serde(default)]
+    pub footing_moved: bool,
 }
+/// Keyboard default for "Safe footing" (its action id stays "R"); away from the movement keys.
+const FOOTING_KEY: &str = "Backspace";
 impl Default for Preferences {
     fn default() -> Self {
         Self {
@@ -116,11 +121,15 @@ impl Default for Preferences {
             // Original default_pc.cfg: `seta cl_run "1"`, Shift (+speed) walks.
             always_run: true,
             subtitles: true,
-            bindings: BINDINGS.iter().map(|(_, key)| (*key).to_owned()).collect(),
+            bindings: BINDINGS
+                .iter()
+                .map(|(_, key)| if *key == "R" { FOOTING_KEY } else { key }.to_owned())
+                .collect(),
             pad_bindings: pad_defaults(),
             pad_sensitivity: 1.,
             pad_deadzone: 0.24,
             invert_pad: false,
+            footing_moved: true,
         }
     }
 }
@@ -190,8 +199,16 @@ impl Preferences {
                 default
             });
         }
+        if !p.footing_moved {
+            let row = BINDINGS.iter().position(|(_, key)| *key == "R").unwrap();
+            if p.bindings[row] == "R" && !p.bindings.iter().any(|k| k == FOOTING_KEY) {
+                p.bindings[row] = FOOTING_KEY.into();
+            }
+            p.footing_moved = true;
+        }
         p.validate()?;
         Ok(p)
+
     }
     pub fn save(&self) -> Result<()> {
         self.validate()?;
@@ -312,5 +329,24 @@ mod tests {
             Preferences::parse(&serde_json::to_vec(&p).unwrap()).unwrap(),
             p
         );
+    }
+    #[test]
+    fn safe_footing_moves_off_r_once_and_keeps_its_controller_button() {
+        let row = BINDINGS.iter().position(|(_, key)| *key == "R").unwrap();
+        let fresh = Preferences::default();
+        assert_eq!(fresh.bindings[row], "Backspace");
+        assert_eq!(fresh.pad_bindings[row], "D Left");
+        // Preferences saved before the move still have R and no marker.
+        let mut old = serde_json::to_value(&fresh).unwrap();
+        old["bindings"][row] = "R".into();
+        old.as_object_mut().unwrap().remove("footing_moved");
+        let migrated = Preferences::parse(&serde_json::to_vec(&old).unwrap()).unwrap();
+        assert_eq!(migrated.bindings[row], "Backspace");
+        assert_eq!(migrated.pad_bindings[row], "D Left");
+        // A player who binds R again afterwards keeps it.
+        let mut chosen = migrated.clone();
+        chosen.bindings[row] = "R".into();
+        let kept = Preferences::parse(&serde_json::to_vec(&chosen).unwrap()).unwrap();
+        assert_eq!(kept.bindings[row], "R");
     }
 }

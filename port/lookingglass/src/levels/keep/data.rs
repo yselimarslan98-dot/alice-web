@@ -148,7 +148,9 @@ impl Data {
             hit: 0.35,
             pain: clips["cardguard_diamond/pain1"],
             death: clips["cardguard_diamond/death_1"],
+            gait: Default::default(),
         };
+
         let mut spawns = vec![];
         for (id, e) in map
             .entities

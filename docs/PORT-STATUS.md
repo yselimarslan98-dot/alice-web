@@ -35,6 +35,7 @@ yükleyicisi senkron olduğu için oyun, senkron dosya okumasının mümkün old
 | Ayarlar paneli: FPS sınırı (varsayılan sınırsız, `#fps=N`), çizim çözünürlüğü (otomatik ≤1080p, %100/75/50), istatistik kutusu (kapalı/FPS/ayrıntılı) | ✅ |
 | Xbox / PS5 kontrolcüsü (Gamepad API → LG'nin XInput katmanı; PS tuş adları) | ✅ (sahte kontrolcüyle test edildi) |
 | Ham fare girdisi (`unadjustedMovement`) | ✅ (gerçek tarayıcıda; headless'ta yok) |
+| "Safe footing" (son güvenli zemine dön) klavyede R yerine Backspace (yanlışlıkla basılmasın; eski ayarlar bir kez taşınır, kontrolcüde D-pad sol aynen) | ✅ |
 
 ## Ölçümler (headless Chrome, RTX 3060 Ti)
 
@@ -89,7 +90,12 @@ basitleştirilmiş yaklaşımı. Orijinal durum makineleri oyun verisinde duruyo
   Karınca çavuşu: %30 ve 150–640 birim.
 - **Hızlı yürüyüş:** Satranç taşları uzaktayken `walk_2` (at/fil 400, kale 500), karıncalar görünür ve 250'den
   uzaktayken `walk_fast` (230 altında döngü sonunda bırakır).
-- Ateş imp'i, karınca aslanı, fil ışını ve kale hücumu zaten orijinale yakındı; dokunulmadı.
+- **Sinek / karo askerleri (`combat.rs` `Guard`, ayrı bir uygulama; fortress, skool, gvillage, pandemonium):**
+  eskiden 420/900 birim görüş, başlangıç noktasından 500–700 birim bağ, sıfır hafıza, sabit 95 u/s düz yürüyüş ve
+  karo için 600 birim içinde her 0,65 sn'de atış vardı. Artık 1000/1200 görüş, takip + yol bulma, klip hızlarıyla
+  yürüme/koşma (`Gait`, yeni `State::Run`; sinek 150, karo 250 ötesinde koşar), yakın dövüş 100 birim; karo
+  boştayken %50 hemen atış, yürürken döngü başına %33,3, koşarken %20, yol yoksa %80 (>250).
+- Ateş imp'i, karınca aslanı, boojum, fil ışını ve kale hücumu zaten orijinale yakındı; yalnızca kayıt eklendi.
 - Kayıt uyumu: yeni alanlar `#[serde(default)]`; eski kayıtlar yüklenir.
 - **Yapay zeka kaydı (`?ai-log`, yerelde `--ai-log`):** `ai_log.rs` her düşmanı durum değişiminde ve
   takipteyken 0,5 sn'de bir, Alice'i 0,5 sn'de bir kaydeder; 10 sn'de bir kullanıcı verisine

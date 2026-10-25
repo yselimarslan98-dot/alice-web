@@ -512,6 +512,7 @@ impl Data {
             names.extend(
                 [
                     "walk",
+                    "run",
                     "alert1",
                     "attack1",
                     "pain1",
@@ -569,7 +570,9 @@ impl Data {
             hit: clips["attack1"].frame_time * 14.,
             pain: clips["pain1"].duration(),
             death: clips["death_1"].duration(),
+            gait: crate::combat::Gait::from_clips(&clips["walk"], &clips["run"], def.scale),
         });
+
         let card_muzzle = if name == "cardguard_spade" {
             let (staff, model) = crate::weapons::read_model(assets, "w_spadestaff")?;
             let bone = skeleton

@@ -759,5 +759,7 @@ fn diamond_timing(data: &Data) -> combat::Timing {
         hit: data.clips["stand_attack"].frame_time * 5.,
         pain: data.clips["pain1"].duration(),
         death: data.clips["death_1"].duration(),
+        gait: combat::Gait::from_clips(&data.clips["walk"], &data.clips["run"], data.def.scale),
     }
 }
+
