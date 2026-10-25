@@ -463,12 +463,18 @@ impl Plant {
                 } else if distance < 100. {
                     self.set(Phase::Grab);
                 } else {
-                    out.strike(
-                        victim,
-                        0.,
-                        -delta.normalize_or_zero() * 1200. * STEP,
-                        DamageKind::Other,
-                    );
+                    // Native SuckEnemy "1200" adds (448 - range) / 384 * 1200 u/s² toward the
+                    // mushroom to the victim's velocity, which ground friction (6/s, 100 u/s
+                    // stop speed) holds to a drift of a / 6 and cancels below 600 u/s². Alice
+                    // keeps her own control, so she can walk out of it beyond close range.
+                    let pull = (448. - distance) / 384. * 1200.;
+                    let speed = if pull > 600. { pull / 6. } else { 0. };
+                    let toward = -delta.with_z(0.).normalize_or_zero() * speed * STEP;
+                    if victim == crate::dice::SUMMON {
+                        out.strike(victim, 0., toward, DamageKind::Other);
+                    } else {
+                        out.drift += toward;
+                    }
                 }
             }
             Phase::Grab => {

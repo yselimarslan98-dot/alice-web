@@ -126,7 +126,9 @@ fn mushroom_pull_stops_for_cover_distance_notarget_and_death() {
         let mut p = plant(Kind::Mushroom);
         p.set(Phase::Suck);
         let eye = vec3(250., 0., 48.);
-        assert!(run(&mut p, &floor(), eye, 1).impulse.x < 0.);
+        let f = run(&mut p, &floor(), eye, 1);
+        // A drift, not a knockback: Alice keeps control and is not launched.
+        assert!(f.drift.x < 0. && f.drift.x > -2. && f.impulse == Vec3::ZERO);
         let wall = World::fixture(&[(vec3(100., -1000., -100.), vec3(110., 1000., 1000.))]);
         match stop {
             0 => {}
@@ -143,9 +145,24 @@ fn mushroom_pull_stops_for_cover_distance_notarget_and_death() {
             if stop == 3 { vec3(500., 0., 48.) } else { eye },
             1,
         );
-        assert_eq!(f.impulse, Vec3::ZERO);
+        assert_eq!(f.drift, Vec3::ZERO);
     }
 }
+#[test]
+fn mushroom_pull_is_weak_at_range_and_strongest_up_close() {
+    let pull = |x: f32| {
+        let mut p = plant(Kind::Mushroom);
+        p.set(Phase::Suck);
+        -run(&mut p, &floor(), vec3(x, 0., 48.), 120).drift.x
+    };
+    // Friction cancels the native suction beyond ~256 units; inside it drifts slower than
+    // Alice's 173 u/s run until she is nearly in the mushroom's grasp.
+    assert_eq!(pull(350.), 0.);
+    let (mid, close) = (pull(200.), pull(130.));
+    assert!(mid > 100. && mid < 173., "{mid}");
+    assert!(close > mid && close < 240., "{close}");
+}
+
 #[test]
 fn mushroom_digest_is_bounded_interruptible_and_does_not_lock_player() {
     let mut p = plant(Kind::Mushroom);

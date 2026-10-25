@@ -536,6 +536,7 @@ impl Resident {
         out.will_drain += f.will_drain;
         out.cue_sounds.extend(f.cue_sounds);
         out.impulse += f.impulse;
+        out.drift += f.drift;
         out.summon_hits.extend(f.summon_hits);
         out.spatial_sounds.extend(f.spatial_sounds);
         out.spatial_sounds

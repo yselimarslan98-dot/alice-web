@@ -221,6 +221,9 @@ pub struct Feedback {
     pub cue_sounds: Vec<(String, Vec3)>,
     pub damage: f32,
     pub impulse: Vec3,
+    /// Horizontal displacement from continuous pulls (mushroom suction), unlike `impulse`
+    /// leaving Alice's own control in charge.
+    pub drift: Vec3,
     pub summon_hits: Vec<Hit>,
     pub sounds: Vec<&'static str>,
     pub spatial_sounds: Vec<(&'static str, Vec3)>,

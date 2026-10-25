@@ -210,6 +210,19 @@ impl Player {
             self.grounded = false;
         }
     }
+    /// Move by a continuous external drift (mushroom suction). Unlike `knockback`, it does
+    /// not suspend input acceleration; collision still clips it.
+    pub fn drift(&mut self, world: &World, offset: Vec3) {
+        let offset = vec3_z(offset, 0.);
+        if !offset.is_finite()
+            || offset.length_squared() < 1e-6
+            || self.ledge.is_some()
+            || self.rope.is_some()
+        {
+            return;
+        }
+        self.feet = slide(world, self.feet, offset / FIXED_DT, FIXED_DT).0;
+    }
     pub fn rope_prompt(&self, world: &World) -> Option<&'static str> {
         if self.ledge.is_some() {
             Some("Forward or Space pull up / A-D move along edge / Back or Ctrl let go")

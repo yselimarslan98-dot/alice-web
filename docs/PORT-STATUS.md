@@ -95,6 +95,12 @@ basitleştirilmiş yaklaşımı. Orijinal durum makineleri oyun verisinde duruyo
   karo için 600 birim içinde her 0,65 sn'de atış vardı. Artık 1000/1200 görüş, takip + yol bulma, klip hızlarıyla
   yürüme/koşma (`Gait`, yeni `State::Run`; sinek 150, karo 250 ötesinde koşar), yakın dövüş 100 birim; karo
   boştayken %50 hemen atış, yürürken döngü başına %33,3, koşarken %20, yol yoksa %80 (>250).
+- **Kötü mantar çekişi (`plants.rs`):** LG her 1/120 sn adımda Alice'e geri itme (knockback) veriyordu; bu
+  hem 1200 u/s² sabit hızlanma demekti hem de girdi ve sürtünmeyi sürekli kapatıyordu, Alice çaresizce
+  hızlanarak çekiliyordu. Orijinal `SuckEnemy::Evaluate` (`fgamex86.dll`, 0x1003e820): hıza
+  `(448 − mesafe) / 384 × 1200` u/s² ekler; oyuncu sürtünmesi bunu 600 u/s² altında sıfırlar, üstünde
+  ivme/6 hızında bir kaymaya indirir. Artık ~256 birimden uzakta çekiş yok, yakında 100–233 u/s kayma
+  (`Feedback::drift`, `Player::drift`); Alice kontrolü kaybetmiyor.
 - Ateş imp'i, karınca aslanı, boojum, fil ışını ve kale hücumu zaten orijinale yakındı; yalnızca kayıt eklendi.
 - Kayıt uyumu: yeni alanlar `#[serde(default)]`; eski kayıtlar yüklenir.
 - **Yapay zeka kaydı (`?ai-log`, yerelde `--ai-log`):** `ai_log.rs` her düşmanı durum değişiminde ve

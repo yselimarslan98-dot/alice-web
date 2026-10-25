@@ -90,6 +90,7 @@ impl Route {
         }
         self.stats.damage(feedback.damage);
         self.player.knockback(feedback.impulse);
+        self.player.drift(&self.world, feedback.drift);
         self.damage += feedback.damage;
         for event in events.story {
             self.story.trigger(&event);

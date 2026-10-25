@@ -2513,6 +2513,7 @@ pub async fn run(mut assets: Assets, mut options: Options) -> Result<()> {
             stats.spend_will(feedback.will_drain.min(stats.will()));
         }
         player.knockback(feedback.impulse);
+        player.drift(&scene.world, feedback.drift);
         if feedback.damage > 0. {
             println!(
                 "Guard struck Alice: {} damage, {} sanity",
